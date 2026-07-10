@@ -36,7 +36,7 @@ _MENU_LABELS = {
     "secure": {"en": "🔒 Secure Account", "km": "🔒 សុវត្ថិភាពគណនី"},
     "password": {"en": "🔑 Password", "km": "🔑 ពាក្យសម្ងាត់"},
     "add_to_group": {"en": "👥 Add to Group", "km": "👥 បន្ថែមទៅក្រុម"},
-    "donate": {"en": "❤️ Donate", "km": "❤️ បរិច្ចាគ"},
+    "donate": {"en": "❤️ Donate", "km": "❤️ ឧបត្ថម្ភ"},
     "help": {"en": "❓ Help", "km": "❓ ជំនួយ"},
     "language": {"en": "🌐 Change Language", "km": "🌐 ប្តូរភាសា"},
 }
