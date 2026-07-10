@@ -21,4 +21,6 @@ WORKDIR /app
 COPY --from=builder /app /app
 ENV UV_LINK_MODE=copy PATH="/app/.venv/bin:$PATH"
 
+EXPOSE 8080
+
 CMD ["uv", "run", "--frozen", "--no-dev", "main.py"]

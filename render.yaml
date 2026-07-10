@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: broryat-ai
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: VT_API_KEY
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false

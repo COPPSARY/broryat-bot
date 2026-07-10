@@ -1,4 +1,7 @@
 import logging
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram.ext import Application
 
@@ -15,9 +18,28 @@ from bot.services.virustotal.client import VirusTotalClient
 from bot.services.virustotal.rate_limiter import VTRateLimiter
 
 
+class _HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    def log_message(self, format: str, *args) -> None:  # noqa: A002
+        pass
+
+
+def _start_health_check_server() -> None:
+    """Bind a dummy HTTP port so free-tier hosts (e.g. Render) treat this as a live web service."""
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), _HealthCheckHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+
 def main() -> None:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level)
+
+    _start_health_check_server()
 
     ai_provider = get_ai_provider(settings)
 
