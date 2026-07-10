@@ -13,9 +13,13 @@ async def run_with_progress(
     placeholder = await message.reply_text(THINKING[language])
     task = asyncio.ensure_future(coroutine)
 
-    done, _ = await asyncio.wait([task], timeout=threshold)
-    if task not in done:
-        await placeholder.edit_text(ANALYZING[language])
-        await task
+    labels = (ANALYZING[language], THINKING[language])
+    i = 0
+    while True:
+        done, _ = await asyncio.wait([task], timeout=threshold)
+        if task in done:
+            break
+        await placeholder.edit_text(labels[i % 2])
+        i += 1
 
     return placeholder, task.result()

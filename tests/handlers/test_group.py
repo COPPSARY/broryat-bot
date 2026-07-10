@@ -1,32 +1,52 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from telegram.error import BadRequest
 
 from bot.handlers.group import handle_group_message
 from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanResult
+from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
 
 
-def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
+@pytest.fixture(autouse=True)
+def mock_sleep():
+    with patch("bot.handlers.group.asyncio.sleep", new=AsyncMock()) as sleep_mock:
+        yield sleep_mock
+
+
+def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file=None, vt_url=None):
     return ScanResult(
         risk_level=risk_level,
         ai=IntentResult(
             risk_level=risk_level, confidence=0.5, categories=[], explanation="x",
             message=message, language="en",
         ),
+        vt_file=vt_file,
+        vt_url=vt_url,
     )
 
 
-def _update(text="check this https://example.com"):
+def _update(text="check this https://example.com", document=None):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
-    update.message.document = None
+    update.message.document = document
     update.message.forward_origin = None
     update.message.chat_id = 999
+    update.message.message_id = 555
     update.message.from_user.id = 42
     placeholder = AsyncMock()
     update.message.reply_text = AsyncMock(return_value=placeholder)
     return update
+
+
+def _context():
+    context = MagicMock()
+    context.bot.delete_message = AsyncMock()
+    context.bot.get_file = AsyncMock(return_value=AsyncMock(download_to_drive=AsyncMock()))
+    return context
 
 
 def _group_pref_repo(language=None):
@@ -35,67 +55,221 @@ def _group_pref_repo(language=None):
     return repo
 
 
-async def test_replies_when_risk_is_above_safe():
-    update = _update()
+def _pipeline():
     pipeline = AsyncMock()
-    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH, message="Do not click the link.")
+    pipeline.count_recent_scans = AsyncMock(return_value=0)
+    return pipeline
 
-    await handle_group_message(update, MagicMock(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+async def test_does_nothing_when_group_scan_disabled():
+    update = _update()
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=False)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_plain_text_without_link_is_skipped_entirely():
+    update = _update(text="hey everyone, how's it going?")
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_text_with_link_is_scanned_and_defaults_to_khmer():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(language=None), group_scan_enabled=True)
+
+    request = pipeline.run.call_args[0][0]
+    assert request.language == "km"
+    assert request.chat_type == "group"
+    assert request.urls == ["https://example.com"]
+
+
+async def test_stored_language_preference_overrides_khmer_default():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(language="en"), group_scan_enabled=True)
+
+    request = pipeline.run.call_args[0][0]
+    assert request.language == "en"
+
+
+async def test_lone_trusted_domain_link_skips_scan_entirely():
+    update = _update(text="https://google.com")
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_trusted_domain_link_with_other_text_still_scanned():
+    update = _update(text="You won a prize, claim it at https://google.com now!")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_awaited_once()
+
+
+async def test_daily_limit_reached_blocks_scan_with_message():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_awaited_once()
+    text = update.message.reply_text.call_args[0][0]
+    assert "២" in text
+
+
+async def test_below_daily_limit_still_scans():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.count_recent_scans = AsyncMock(return_value=1)
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_awaited_once()
+
+
+async def test_document_without_link_is_scanned():
+    document = MagicMock()
+    document.file_name = "invoice.pdf"
+    document.file_size = 1000
+    document.file_id = "file-id"
+    update = _update(text=None, document=document)
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_awaited_once()
+    request = pipeline.run.call_args[0][0]
+    assert request.input_type == "file"
+    assert request.file_name == "invoice.pdf"
+
+
+async def test_document_caption_is_included_as_text():
+    document = MagicMock()
+    document.file_name = "invoice.pdf"
+    document.file_size = 1000
+    document.file_id = "file-id"
+    update = _update(text=None, document=document)
+    update.message.caption = "please review this"
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    request = pipeline.run.call_args[0][0]
+    assert request.text == "please review this"
+
+
+async def test_oversized_document_is_rejected_without_calling_pipeline():
+    document = MagicMock()
+    document.file_name = "big.exe"
+    document.file_size = 25 * 1024 * 1024
+    update = _update(text=None, document=document)
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_awaited_once()
+
+
+async def test_vt_malicious_url_deletes_message_and_warns():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result(
+        vt_url=VTUrlVerdict(url="https://example.com", status="malicious", malicious_count=5, total_engines=10)
+    )
+    context = _context()
+
+    await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    context.bot.delete_message.assert_awaited_once_with(chat_id=999, message_id=555)
+    placeholder = update.message.reply_text.return_value
+    placeholder.edit_text.assert_awaited_once()
+    assert "លុបចេញ" in placeholder.edit_text.await_args.args[0]
+
+
+async def test_waits_five_seconds_before_deleting_malicious_message(mock_sleep):
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result(
+        vt_url=VTUrlVerdict(url="https://example.com", status="malicious", malicious_count=5, total_engines=10)
+    )
+    context = _context()
+
+    await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    mock_sleep.assert_awaited_once_with(5)
+    assert context.bot.delete_message.await_count == 1
+
+
+async def test_vt_malicious_file_deletes_message_and_warns():
+    document = MagicMock()
+    document.file_name = "malware.exe"
+    document.file_size = 1000
+    document.file_id = "file-id"
+    update = _update(text=None, document=document)
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result(
+        vt_file=VTFileVerdict(sha256="a" * 64, status="malicious", malicious_count=5, total_engines=10)
+    )
+    context = _context()
+
+    await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    context.bot.delete_message.assert_awaited_once_with(chat_id=999, message_id=555)
+
+
+async def test_delete_failure_falls_back_to_full_risk_report():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result(
+        message="Do not click the link.",
+        vt_url=VTUrlVerdict(url="https://example.com", status="malicious", malicious_count=5, total_engines=10),
+    )
+    context = _context()
+    context.bot.delete_message.side_effect = BadRequest("Message can't be deleted")
+
+    await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
 
     placeholder = update.message.reply_text.return_value
     placeholder.edit_text.assert_awaited()
     assert "Do not click the link." in placeholder.edit_text.await_args.args[0]
 
 
-async def test_stays_silent_when_risk_is_safe():
-    update = _update()
-    pipeline = AsyncMock()
-    pipeline.run.return_value = _scan_result()
+async def test_non_malicious_result_shows_response_then_deletes_after_five_seconds(mock_sleep):
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH, message="Do not click the link.")
+    context = _context()
 
-    await handle_group_message(update, MagicMock(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+    await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
 
     placeholder = update.message.reply_text.return_value
-    placeholder.edit_text.assert_awaited_once_with("✅ No issues found.")
-
-
-async def test_does_nothing_when_group_scan_disabled():
-    update = _update()
-    pipeline = AsyncMock()
-
-    await handle_group_message(update, MagicMock(), pipeline, _group_pref_repo(), group_scan_enabled=False)
-
-    pipeline.run.assert_not_awaited()
-    update.message.reply_text.assert_not_awaited()
-
-
-async def test_scan_request_uses_group_chat_type():
-    update = _update()
-    pipeline = AsyncMock()
-    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH, message="Do not click the link.")
-
-    await handle_group_message(update, MagicMock(), pipeline, _group_pref_repo(), group_scan_enabled=True)
-
-    request = pipeline.run.call_args[0][0]
-    assert request.chat_type == "group"
-
-
-async def test_no_stored_preference_falls_back_to_auto_detected_language():
-    update = _update(text="សួស្តី តើនេះជាការពិតទេ")
-    pipeline = AsyncMock()
-    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH)
-
-    await handle_group_message(update, MagicMock(), pipeline, _group_pref_repo(language=None), group_scan_enabled=True)
-
-    request = pipeline.run.call_args[0][0]
-    assert request.language == "km"
-
-
-async def test_stored_preference_overrides_auto_detected_language():
-    update = _update(text="សួស្តី តើនេះជាការពិតទេ")
-    pipeline = AsyncMock()
-    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH)
-
-    await handle_group_message(update, MagicMock(), pipeline, _group_pref_repo(language="en"), group_scan_enabled=True)
-
-    request = pipeline.run.call_args[0][0]
-    assert request.language == "en"
+    placeholder.edit_text.assert_awaited_once()
+    assert "Do not click the link." in placeholder.edit_text.await_args.args[0]
+    mock_sleep.assert_awaited_once_with(5)
+    placeholder.delete.assert_awaited_once()
+    context.bot.delete_message.assert_not_awaited()

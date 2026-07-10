@@ -111,3 +111,57 @@ async def test_get_by_id_returns_none_when_not_found(repo):
     result = await repo.get_by_id(uuid4())
 
     assert result is None
+
+
+async def test_count_recent_scans_returns_zero_with_no_rows(repo):
+    count = await repo.count_recent_scans("private", 999)
+
+    assert count == 0
+
+
+async def test_count_recent_scans_counts_matching_rows_for_private_user(repo):
+    await repo.insert_scan(_record(chat_type="private", user_id=42, chat_id=1))
+    await repo.insert_scan(_record(chat_type="private", user_id=42, chat_id=2))
+
+    count = await repo.count_recent_scans("private", 42)
+
+    assert count == 2
+
+
+async def test_count_recent_scans_counts_matching_rows_for_group_chat(repo):
+    await repo.insert_scan(_record(chat_type="group", user_id=1, chat_id=555))
+    await repo.insert_scan(_record(chat_type="group", user_id=2, chat_id=555))
+
+    count = await repo.count_recent_scans("group", 555)
+
+    assert count == 2
+
+
+async def test_count_recent_scans_excludes_rows_older_than_window(repo):
+    await repo.insert_scan(
+        _record(
+            chat_type="private",
+            user_id=42,
+            created_at=datetime.now(timezone.utc) - timedelta(hours=48),
+        )
+    )
+
+    count = await repo.count_recent_scans("private", 42, within_hours=24)
+
+    assert count == 0
+
+
+async def test_count_recent_scans_private_does_not_match_on_chat_id(repo):
+    await repo.insert_scan(_record(chat_type="private", user_id=1, chat_id=42))
+
+    count = await repo.count_recent_scans("private", 42)
+
+    assert count == 0
+
+
+async def test_count_recent_scans_group_does_not_match_on_user_id(repo):
+    await repo.insert_scan(_record(chat_type="group", user_id=42, chat_id=1))
+
+    count = await repo.count_recent_scans("group", 42)
+
+    assert count == 0

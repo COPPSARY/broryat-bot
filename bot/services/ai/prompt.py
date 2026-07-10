@@ -18,6 +18,14 @@ Message:
 
 {vt_section}
 
+Website analysis rules (apply whenever a URL is involved):
+- VirusTotal only checks for known malware signatures — it does not detect phishing, impersonation, or scam intent. You must still independently judge the domain yourself using the rules below, even when VirusTotal reports the URL as clean or provides no result at all.
+- Extract and consider the domain name itself, not just surface impressions.
+- Check for phishing, impersonation, suspicious redirects, fake login pages, credential theft, and misleading content.
+- Weigh the domain name, subdomains, spelling variations (e.g. micros0ft-login.com), and URL structure.
+- Do not mark a website as safe only because it uses HTTPS — HTTPS says nothing about legitimacy.
+- Never invent or assume a security result that isn't supported by the message content or the VirusTotal scan result above.
+
 Reply entirely in language "{language}" using Telegram Markdown (*bold* — always close tags). \
 Be clear, concise, and engaging — feel free to use fitting emoji. Base your assessment only on \
 the message and scan result above. Translate every part of your visible reply into language \

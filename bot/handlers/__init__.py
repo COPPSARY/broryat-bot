@@ -19,6 +19,7 @@ from bot.handlers.commands import (
 )
 from bot.handlers.group import handle_group_message
 from bot.handlers.language import handle_language_choice
+from bot.handlers.media import handle_unsupported_media
 from bot.handlers.private import handle_private_message
 from bot.handlers.report import handle_report_callback
 from bot.services.pipeline import ScanPipeline
@@ -124,12 +125,34 @@ def register_handlers(
     )
     app.add_handler(
         MessageHandler(
-            filters.ChatType.GROUPS & filters.TEXT,
+            filters.ChatType.GROUPS & (filters.TEXT | filters.Document.ALL),
             partial(
                 handle_group_message,
                 pipeline=pipeline,
                 group_pref_repo=group_pref_repo,
                 group_scan_enabled=group_scan_enabled,
+            ),
+        )
+    )
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & (filters.PHOTO | filters.VIDEO),
+            partial(
+                handle_unsupported_media,
+                pipeline=pipeline,
+                user_pref_repo=user_pref_repo,
+                group_pref_repo=group_pref_repo,
+            ),
+        )
+    )
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.GROUPS & (filters.PHOTO | filters.VIDEO),
+            partial(
+                handle_unsupported_media,
+                pipeline=pipeline,
+                user_pref_repo=user_pref_repo,
+                group_pref_repo=group_pref_repo,
             ),
         )
     )

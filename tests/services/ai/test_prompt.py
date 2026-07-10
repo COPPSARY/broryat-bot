@@ -68,3 +68,33 @@ def test_prompt_does_not_ask_ai_to_write_the_disclaimer():
 def test_disclaimer_has_english_and_khmer_versions():
     assert set(DISCLAIMER.keys()) == {"en", "km"}
     assert DISCLAIMER["en"] != DISCLAIMER["km"]
+
+
+def test_prompt_includes_website_analysis_rules():
+    prompt = build_prompt("some text", "en")
+    assert "phishing" in prompt.lower()
+    assert "https" in prompt.lower()
+    assert "subdomain" in prompt.lower()
+
+
+def test_prompt_instructs_not_to_trust_https_alone():
+    prompt = build_prompt("some text", "en")
+    assert "only because it uses https" in prompt.lower()
+
+
+def test_prompt_instructs_never_invent_results():
+    prompt = build_prompt("some text", "en")
+    assert "never invent" in prompt.lower()
+
+
+def test_prompt_instructs_independent_domain_analysis_regardless_of_vt_result():
+    prompt = build_prompt(
+        "check https://example.com", "en", vt_context="clean (0/70 engines detected threats)"
+    )
+    assert "does not detect phishing" in prompt.lower()
+    assert "you must still" in prompt.lower() or "independently" in prompt.lower()
+
+
+def test_prompt_pushes_independent_domain_analysis_even_without_vt_context():
+    prompt = build_prompt("check https://example.com", "en")
+    assert "phishing" in prompt.lower()

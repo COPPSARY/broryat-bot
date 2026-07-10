@@ -39,6 +39,16 @@ def test_build_vt_context_returns_none_when_neither_present():
     assert _build_vt_context(None, None) is None
 
 
+async def test_count_recent_scans_delegates_to_repo():
+    pipeline, _, _, repo = _pipeline()
+    repo.count_recent_scans = AsyncMock(return_value=1)
+
+    count = await pipeline.count_recent_scans("private", 42)
+
+    repo.count_recent_scans.assert_awaited_once_with("private", 42)
+    assert count == 1
+
+
 def _intent_result(risk_level=RiskLevel.SAFE, **overrides):
     defaults = dict(risk_level=risk_level, message="default ai message", language="en")
     defaults.update(overrides)

@@ -56,12 +56,56 @@ async def test_edits_to_analyzing_when_coroutine_is_still_running_after_threshol
         await release.wait()
         return "done"
 
-    task = asyncio.create_task(run_with_progress(message, slow_coroutine(), "en", threshold=0.0))
-    for _ in range(10):
+    task = asyncio.create_task(run_with_progress(message, slow_coroutine(), "en", threshold=0.01))
+    for _ in range(50):
         if placeholder.edit_text.await_count:
             break
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.01)
     release.set()
     await task
 
-    placeholder.edit_text.assert_awaited_once_with(ANALYZING["en"])
+    assert placeholder.edit_text.await_args_list[0].args[0] == ANALYZING["en"]
+
+
+async def test_loops_between_analyzing_and_thinking_while_still_running():
+    placeholder = AsyncMock()
+    message = _message(placeholder)
+    release = asyncio.Event()
+
+    async def slow_coroutine():
+        await release.wait()
+        return "done"
+
+    task = asyncio.create_task(run_with_progress(message, slow_coroutine(), "en", threshold=0.01))
+    for _ in range(200):
+        if placeholder.edit_text.await_count >= 2:
+            break
+        await asyncio.sleep(0.01)
+    release.set()
+    await task
+
+    calls = [c.args[0] for c in placeholder.edit_text.await_args_list]
+    assert calls[0] == ANALYZING["en"]
+    assert calls[1] == THINKING["en"]
+
+
+async def test_stops_editing_once_coroutine_completes():
+    placeholder = AsyncMock()
+    message = _message(placeholder)
+    release = asyncio.Event()
+
+    async def slow_coroutine():
+        await release.wait()
+        return "done"
+
+    task = asyncio.create_task(run_with_progress(message, slow_coroutine(), "en", threshold=0.01))
+    for _ in range(50):
+        if placeholder.edit_text.await_count:
+            break
+        await asyncio.sleep(0.01)
+    release.set()
+    await task
+
+    count_after_completion = placeholder.edit_text.await_count
+    await asyncio.sleep(0.05)
+    assert placeholder.edit_text.await_count == count_after_completion

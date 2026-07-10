@@ -91,6 +91,9 @@ class ScanPipeline:
             scan_record_id=record.id,
         )
 
+    async def count_recent_scans(self, chat_type: str, identifier: int) -> int:
+        return await self._repo.count_recent_scans(chat_type, identifier)
+
     async def _classify_or_none(
         self, text: str, language: str, vt_context: str | None
     ) -> IntentResult | None:

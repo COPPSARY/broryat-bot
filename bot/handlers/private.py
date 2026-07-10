@@ -23,7 +23,58 @@ from bot.schemas.scan import ScanRequest
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
 from bot.utils.language import detect_language
-from bot.utils.url_extraction import extract_urls
+from bot.utils.trusted_domains import is_trusted_domain
+from bot.utils.url_extraction import extract_urls, is_message_only_urls
+
+_FORWARD_ONLY_FALLBACK = {
+    "en": (
+        "Sorry, I can only check messages that someone else sent you. "
+        "If you got a suspicious message, please press and hold it, tap "
+        "*Forward*, and send it to me here — I'll check it for you right away."
+    ),
+    "km": (
+        "សូមអភ័យទោស ខ្ញុំអាចត្រួតពិនិត្យបានតែសារដែលអ្នកដទៃផ្ញើមកអ្នកប៉ុណ្ណោះ។ "
+        "ប្រសិនបើអ្នកទទួលបានសារគួរឱ្យសង្ស័យ សូមចុចសង្កត់លើសារនោះ ចុច "
+        "*បញ្ជូនបន្ត (Forward)* រួចផ្ញើមកខ្ញុំ ខ្ញុំនឹងត្រួតពិនិត្យជូនភ្លាមៗ។"
+    ),
+}
+
+
+def _forward_only_fallback(language: str | None) -> str:
+    if language:
+        return _FORWARD_ONLY_FALLBACK[language]
+    return f"{_FORWARD_ONLY_FALLBACK['en']}\n\n{_FORWARD_ONLY_FALLBACK['km']}"
+
+
+_TRUSTED_SITE = {
+    "en": "✅ This is a well-known, trusted website. No scan needed.",
+    "km": "✅ នេះជាគេហទំព័រដែលគេស្គាល់ ហើយអាចទុកចិត្តបាន។ មិនចាំបាច់ស្កេនទេ។",
+}
+
+
+def _trusted_site_message(language: str | None) -> str:
+    if language:
+        return _TRUSTED_SITE[language]
+    return f"{_TRUSTED_SITE['en']}\n\n{_TRUSTED_SITE['km']}"
+
+
+def _is_lone_trusted_link(text: str, urls: list[str]) -> bool:
+    return len(urls) == 1 and is_message_only_urls(text, urls) and is_trusted_domain(urls[0])
+
+
+_DAILY_LIMIT = 2
+
+_LIMIT_REACHED = {
+    "en": "🚦 You've used your 2 free scans for today. Please try again in 24 hours.",
+    "km": "🚦 អ្នកបានប្រើប្រាស់ការស្កេនចំនួន ២ ដងសម្រាប់ថ្ងៃនេះអស់ហើយ។ សូមព្យាយាមម្តងទៀតក្នុងរយៈពេល ២៤ម៉ោង។",
+}
+
+
+def _limit_reached_message(language: str | None) -> str:
+    if language:
+        return _LIMIT_REACHED[language]
+    return f"{_LIMIT_REACHED['en']}\n\n{_LIMIT_REACHED['km']}"
+
 
 _MENU_HANDLERS = {
     "use": use_command,
@@ -91,6 +142,15 @@ async def handle_private_message(
         text = message.text or ""
         urls = extract_urls(text)
         forwarded = getattr(message, "forward_origin", None) is not None
+
+        if not urls and not forwarded:
+            await message.reply_text(_forward_only_fallback(stored_language))
+            return
+
+        if _is_lone_trusted_link(text, urls):
+            await message.reply_text(_trusted_site_message(stored_language))
+            return
+
         request = ScanRequest(
             chat_id=message.chat_id,
             user_id=message.from_user.id,
@@ -101,7 +161,15 @@ async def handle_private_message(
             language=stored_language or detect_language(text),
         )
 
-    placeholder, result = await run_with_progress(message, pipeline.run(request), request.language)
+    if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
+        await message.reply_text(_limit_reached_message(request.language))
+        return
+
+    await run_private_scan(message, pipeline, request.language, request)
+
+
+async def run_private_scan(message, pipeline: ScanPipeline, language: str, request: ScanRequest) -> None:
+    placeholder, result = await run_with_progress(message, pipeline.run(request), language)
     await edit_with_markdown(
-        placeholder, format_response(result), reply_markup=virustotal_keyboard(result, request.language)
+        placeholder, format_response(result), reply_markup=virustotal_keyboard(result, language)
     )
