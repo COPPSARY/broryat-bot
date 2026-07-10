@@ -1,0 +1,15 @@
+{
+  "name": "broryat-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.3",
+    "@lucide/astro": "^1.24.0",
+    "astro": "^5.11.0"
+  }
+}

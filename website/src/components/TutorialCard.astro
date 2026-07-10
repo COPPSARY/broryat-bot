@@ -1,0 +1,29 @@
+---
+import { UI, type Locale } from "../data/site";
+import { getEntryUrl } from "../lib/content";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  locale: Locale;
+  tutorial: CollectionEntry<"tutorials">;
+}
+
+const { locale, tutorial } = Astro.props;
+const ui = UI[locale];
+const hasVideo = Boolean(tutorial.data.videoUrl);
+---
+
+<article class="content-card">
+  <img src={tutorial.data.coverImage} alt="" loading="lazy" />
+  <div class="card-copy">
+    <p class="eyebrow">
+      <span class="tag">{ui.tutorialLabel}</span>
+      {!hasVideo && <span class="soon">{ui.videoComingSoon}</span>}
+    </p>
+    <h3>{tutorial.data.title}</h3>
+    <p>{tutorial.data.description}</p>
+    <a class="inline-link" href={getEntryUrl("tutorials", locale, tutorial.data.translationId)}>
+      {ui.openTutorial}
+    </a>
+  </div>
+</article>

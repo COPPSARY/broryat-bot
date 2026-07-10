@@ -1,0 +1,16 @@
+---
+import { UI, type Locale } from "../data/site";
+
+interface Props {
+  locale: Locale;
+  href: string;
+}
+
+const { locale, href } = Astro.props;
+const ui = UI[locale];
+---
+
+<div class="language-switch" aria-label="Language switcher">
+  <span class="current">{ui.localeLabel}</span>
+  <a href={href}>{ui.alternateLocaleLabel}</a>
+</div>

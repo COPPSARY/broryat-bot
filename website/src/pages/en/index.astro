@@ -1,0 +1,15 @@
+---
+import LandingPage from "../../components/LandingPage.astro";
+import { getLocalizedCollection } from "../../lib/content";
+
+const locale = "en";
+const latestArticles = (await getLocalizedCollection("articles", locale)).slice(0, 3);
+const tutorials = await getLocalizedCollection("tutorials", locale);
+---
+
+<LandingPage
+  locale={locale}
+  latestArticles={latestArticles}
+  tutorials={tutorials}
+  alternateLocaleHref="/"
+/>

@@ -1,0 +1,26 @@
+---
+import { SITE, type Locale } from "../data/site";
+
+interface Props {
+  locale: Locale;
+  note: string;
+  links: ReadonlyArray<{ label: string; href: string }>;
+}
+
+const { note, links } = Astro.props;
+---
+
+<footer class="site-footer">
+  <div class="shell footer-row">
+    <p class="footer-brand">
+      <strong>{SITE.wordmark}</strong>
+      <span>{note}</span>
+    </p>
+    <div class="footer-links">
+      <a href={SITE.telegramUrl} target="_blank" rel="noreferrer">Telegram</a>
+      {links.map((link) => (
+        <a href={link.href} target="_blank" rel="noreferrer">{link.label}</a>
+      ))}
+    </div>
+  </div>
+</footer>

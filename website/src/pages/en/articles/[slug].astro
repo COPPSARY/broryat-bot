@@ -1,0 +1,21 @@
+---
+import EntryPage from "../../../components/EntryPage.astro";
+import { getLocalizedCollection } from "../../../lib/content";
+
+export async function getStaticPaths() {
+  const entries = await getLocalizedCollection("articles", "en");
+  return entries.map((entry) => ({
+    params: { slug: entry.data.translationId },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+---
+
+<EntryPage
+  locale="en"
+  collection="articles"
+  entry={entry}
+  alternateLocaleHref={`/articles/${entry.data.translationId}/`}
+/>

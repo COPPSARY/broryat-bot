@@ -1,0 +1,28 @@
+---
+import { formatDate, UI, type Locale } from "../data/site";
+import { getEntryUrl } from "../lib/content";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  locale: Locale;
+  article: CollectionEntry<"articles">;
+}
+
+const { locale, article } = Astro.props;
+const ui = UI[locale];
+---
+
+<article class="content-card">
+  <img src={article.data.coverImage} alt="" loading="lazy" />
+  <div class="card-copy">
+    <p class="eyebrow">
+      <span class="tag">{article.data.tag}</span>
+      <time datetime={article.data.date.toISOString()}>{formatDate(article.data.date, locale)}</time>
+    </p>
+    <h3>{article.data.title}</h3>
+    <p>{article.data.description}</p>
+    <a class="inline-link" href={getEntryUrl("articles", locale, article.data.translationId)}>
+      {ui.readArticle}
+    </a>
+  </div>
+</article>
