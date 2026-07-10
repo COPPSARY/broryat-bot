@@ -1,0 +1,372 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import {
+  BookOpen,
+  ListOrdered,
+  MessageSquare,
+  Newspaper,
+  ScanSearch,
+  ShieldCheck,
+  Sparkles,
+  UsersRound,
+} from "@lucide/astro";
+import {
+  HOME_EXAMPLES,
+  HOME_FEATURES,
+  SITE,
+  UI,
+  formatDate,
+  type Locale,
+} from "../data/site";
+import { getEntryUrl, getTranslatedEntry } from "../lib/content";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  locale: Locale;
+  latestArticles: CollectionEntry<"articles">[];
+  tutorials: CollectionEntry<"tutorials">[];
+  alternateLocaleHref: string;
+}
+
+const { locale, latestArticles, tutorials, alternateLocaleHref } = Astro.props;
+const ui = UI[locale];
+const features = HOME_FEATURES[locale];
+const examples = HOME_EXAMPLES[locale];
+
+// Icons paired to each feature by order:
+// 1) AI intent analysis  2) Link & file scanning  3) Group chat protection
+const featureIcons = [Sparkles, ScanSearch, UsersRound];
+
+const twoStepGuide = await getTranslatedEntry(
+  "articles",
+  "telegram-two-step-protection",
+  locale,
+);
+const phishingGuide = await getTranslatedEntry("articles", "what-is-phishing", locale);
+
+const guideLinks = [
+  ...tutorials.map((tutorial) => ({
+    href: getEntryUrl("tutorials", locale, tutorial.data.translationId),
+    label: tutorial.data.title,
+    kind: ui.tutorialLabel,
+  })),
+  ...[twoStepGuide, phishingGuide]
+    .filter(Boolean)
+    .map((article) => ({
+      href: getEntryUrl("articles", locale, article.data.translationId),
+      label: article.data.title,
+      kind: ui.articleLabel,
+    })),
+];
+
+const escapeHtml = (text: string) =>
+  text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const renderDangerTokens = (text: string) =>
+  text
+    .split("`")
+    .map((part, index) =>
+      index % 2 === 1
+        ? `<span class="inline-danger-token">${escapeHtml(part)}</span>`
+        : escapeHtml(part),
+    )
+    .join("");
+
+const renderStepText = (text: string) =>
+  text
+    .split("`")
+    .map((part, index) => {
+      if (index % 2 === 0) {
+        return escapeHtml(part);
+      }
+
+      if (part === SITE.telegramHandle) {
+        return `<a class="inline-handle-link" href="${SITE.telegramUrl}" target="_blank" rel="noreferrer">${escapeHtml(part)}</a>`;
+      }
+
+      return `<span class="inline-token">${escapeHtml(part)}</span>`;
+    })
+    .join("");
+
+// Highlight file types / malware in red and link the VirusTotal reference
+const VIRUSTOTAL_DOCS = "https://docs.virustotal.com/reference/overview";
+
+const featureHighlights = {
+  kh: {
+    red: ["APK, EXE, ZIP, PDF", "(Malware)"],
+    link: "VirusTotal v3 API",
+  },
+  en: {
+    red: ["APKs, EXEs, ZIPs, PDFs", "malware"],
+    link: "VirusTotal v3 API",
+  },
+} as const;
+
+const renderFeatureText = (text: string) => {
+  const config = featureHighlights[locale];
+  let html = escapeHtml(text);
+
+  html = html.replaceAll(
+    config.link,
+    `<a class="inline-link" href="${VIRUSTOTAL_DOCS}" target="_blank" rel="noreferrer">${config.link}</a>`,
+  );
+
+  for (const phrase of config.red) {
+    html = html.replaceAll(phrase, `<span class="text-danger">${phrase}</span>`);
+  }
+
+  return html;
+};
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${SITE.name} | ${ui.heroTitle}`}
+  description={ui.heroBody}
+  alternateLocaleHref={alternateLocaleHref}
+>
+  <main>
+    <section class="home-hero shell">
+      <div class="hero-grid">
+        <div class="hero-main">
+          <h1>{ui.heroTitle}</h1>
+          <p class="hero-copy">{ui.heroBody}</p>
+
+          <div class="hero-cta-row">
+            <p class="hero-handle">
+              <span>{ui.heroHandleLabel}:</span>
+              <a href={SITE.telegramUrl} target="_blank" rel="noreferrer">{SITE.telegramHandle}</a>
+            </p>
+          </div>
+        </div>
+
+        <aside class="hero-visual">
+          <img src={ui.heroImage} alt="" loading="eager" />
+          <p class="hero-credit">{ui.heroImageCredit}</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="home-section shell" id="features">
+      <div class="section-heading">
+        <h2 class="section-title">
+          <ShieldCheck aria-hidden="true" />
+          <span>{ui.featuresTitle}</span>
+        </h2>
+        <p>{ui.featuresIntro}</p>
+      </div>
+
+      <div class="feature-grid">
+        {features.map((feature, index) => {
+          const Icon = featureIcons[index % featureIcons.length];
+          return (
+            <article class="feature-item">
+              <div class="feature-head">
+                <span class="feature-icon">
+                  <Icon aria-hidden="true" />
+                </span>
+                <h3>{feature.title}</h3>
+              </div>
+              <p set:html={renderFeatureText(feature.description)} />
+            </article>
+          );
+        })}
+      </div>
+    </section>
+
+    <section class="home-section shell" id="examples">
+      <div class="section-heading">
+        <h2 class="section-title">
+          <MessageSquare aria-hidden="true" />
+          <span>{ui.exampleTitle}</span>
+        </h2>
+        <p>{ui.exampleIntro}</p>
+      </div>
+
+      <div class="example-shell">
+        <div class="example-tabs" role="tablist" aria-label={ui.exampleTitle}>
+          {examples.map((example, index) => (
+            <button
+              class={`example-tab ${index === 0 ? "is-active" : ""}`}
+              type="button"
+              role="tab"
+              aria-selected={index === 0 ? "true" : "false"}
+              aria-controls={`example-panel-${example.id}`}
+              id={`example-tab-${example.id}`}
+              data-example-target={example.id}
+            >
+              <strong>{example.tabTitle}</strong>
+              <span>{example.tabDescription}</span>
+            </button>
+          ))}
+        </div>
+
+        <div class="example-output">
+          {examples.map((example, index) => (
+            <article
+              class={`example-panel ${index === 0 ? "is-active" : ""}`}
+              id={`example-panel-${example.id}`}
+              role="tabpanel"
+              aria-labelledby={`example-tab-${example.id}`}
+              data-example-panel={example.id}
+              hidden={index === 0 ? undefined : true}
+            >
+              <div class="example-copy">
+                <div class="example-block">
+                  <p class="example-label">{ui.exampleMessageLabel}</p>
+                  <p set:html={renderDangerTokens(example.message)} />
+                </div>
+
+                <div class="example-block">
+                  <p class="example-label">{ui.exampleAnalysisLabel}</p>
+                  <p set:html={renderDangerTokens(example.analysis)} />
+                </div>
+
+                <div class="example-block">
+                  <p class="example-label">{ui.exampleRecommendationLabel}</p>
+                  <p set:html={renderDangerTokens(example.recommendation)} />
+                </div>
+              </div>
+
+              <div class="example-preview">
+                <img src={example.image} alt="" loading="lazy" />
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section shell" id="how-to-use">
+      <div class="section-heading">
+        <h2 class="section-title">
+          <ListOrdered aria-hidden="true" />
+          <span>{ui.howToUseTitle}</span>
+        </h2>
+        <p>{ui.howToUseIntro}</p>
+      </div>
+
+      <div class="usage-layout">
+        <div class="step-list">
+          {ui.howToUseSteps.map((step) => (
+            <article class="step-row">
+              <p class="step-number">{step.step}</p>
+              <div class="step-copy">
+                <h3>{step.title}</h3>
+                <p set:html={renderStepText(step.body)} />
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div class="usage-video">
+          <video
+            src="/assets/vid.MOV"
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="metadata"
+          >
+          </video>
+        </div>
+      </div>
+    </section>
+
+    <section class="home-section shell" id="news">
+      <div class="section-heading">
+        <h2 class="section-title">
+          <Newspaper aria-hidden="true" />
+          <span>{ui.newsTitle}</span>
+        </h2>
+        <p>{ui.newsIntro}</p>
+      </div>
+
+      <div class="news-list">
+        {latestArticles.map((article) => (
+          <article class="news-item">
+            <time datetime={article.data.date.toISOString()}>{formatDate(article.data.date, locale)}</time>
+            <div class="news-copy">
+              <span class="news-tag">{article.data.tag}</span>
+              <h3>{article.data.title}</h3>
+              <p>{article.data.description}</p>
+              <a class="inline-link" href={getEntryUrl("articles", locale, article.data.translationId)}>
+                {ui.readArticle}
+              </a>
+            </div>
+            <img class="news-cover" src={article.data.coverImage} alt="" loading="lazy" />
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="home-section shell" id="guides">
+      <div class="section-heading section-heading-inline guides-heading">
+        <div>
+          <h2 class="section-title">
+            <BookOpen aria-hidden="true" />
+            <span>{ui.guidesTitle}</span>
+          </h2>
+          <p>{ui.guidesIntro}</p>
+        </div>
+        <a class="inline-link" href={locale === "kh" ? "/tutorials/" : "/en/tutorials/"}>
+          {ui.browseTutorials}
+        </a>
+      </div>
+
+      <ul class="guide-list">
+        {guideLinks.map((guide) => (
+          <li>
+            <span class="guide-mark">•</span>
+            <a href={guide.href}>{guide.label}</a>
+            <small>{guide.kind}</small>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="cta shell">
+      <div>
+        <p class="kicker">{SITE.name}</p>
+        <h2>{ui.ctaTitle}</h2>
+        <p>{ui.ctaBody}</p>
+      </div>
+      <a class="button primary" href={SITE.telegramUrl} target="_blank" rel="noreferrer">
+        {ui.goToBot}
+      </a>
+    </section>
+  </main>
+
+  <script is:inline>
+    const tabs = document.querySelectorAll("[data-example-target]");
+    const panels = document.querySelectorAll("[data-example-panel]");
+
+    function activateExample(id) {
+      tabs.forEach((tab) => {
+        const active = tab.getAttribute("data-example-target") === id;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+
+      panels.forEach((panel) => {
+        const active = panel.getAttribute("data-example-panel") === id;
+        panel.classList.toggle("is-active", active);
+        panel.hidden = !active;
+      });
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => activateExample(tab.getAttribute("data-example-target")));
+    });
+
+    const defaultTab = document.querySelector(".example-tab.is-active");
+    if (defaultTab) {
+      activateExample(defaultTab.getAttribute("data-example-target"));
+    }
+  </script>
+</BaseLayout>

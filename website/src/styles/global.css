@@ -1,0 +1,1357 @@
+:root {
+  --paper: #ffffff;
+  --ink: #111111;
+  --muted: #666666;
+  --blue: #032ea1;
+  --red: #e00025;
+  --rule: rgba(17, 17, 17, 0.16);
+  --soft-rule: rgba(17, 17, 17, 0.1);
+  --display: "Manrope", "Khmer", sans-serif;
+  --body: "Manrope", "Khmer", sans-serif;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  line-height: 1.7;
+}
+
+::selection {
+  background: var(--blue);
+  color: var(--paper);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+p,
+ul,
+ol,
+blockquote {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.shell {
+  width: min(1120px, calc(100vw - 2rem));
+  margin: 0 auto;
+}
+
+.site-header,
+.site-footer,
+.home-section,
+.cta,
+.entry-page,
+.listing-page {
+  border-top: 1px solid var(--rule);
+}
+
+.flag-strip {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  height: 0.375rem;
+}
+
+.flag-strip .blue {
+  background: var(--blue);
+}
+
+.flag-strip .red {
+  background: var(--red);
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+.nav-row,
+.footer-row,
+.cta {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-row,
+.footer-row {
+  min-height: 4.75rem;
+}
+
+.brand {
+  display: inline-flex;
+  gap: 0.85rem;
+  align-items: center;
+  text-decoration: none;
+}
+
+.brand img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.brand span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.brand strong {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.main-nav,
+.nav-actions,
+.footer-links {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.main-nav {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.main-nav a,
+.footer-links a,
+.language-switch a,
+.language-switch .current {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.main-nav-page-link {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.language-switch {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.language-switch .current {
+  color: var(--red);
+  border-bottom: 2px solid var(--red);
+}
+
+.button,
+.inline-link,
+.back-link,
+.main-nav a,
+.footer-links a,
+.language-switch a {
+  transition: color 160ms ease, background-color 160ms ease, opacity 160ms ease;
+}
+
+.button:hover,
+.inline-link:hover,
+.back-link:hover,
+.main-nav a:hover,
+.footer-links a:hover,
+.language-switch a:hover {
+  color: var(--red);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.85rem;
+  padding: 0 1rem;
+  border: 1px solid var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.button.primary {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--paper);
+}
+
+.button.primary.red {
+  border-color: var(--red);
+  background: var(--red);
+}
+
+.button.ghost {
+  border-color: var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+.kicker,
+.eyebrow,
+.tag,
+.soon,
+.back-link,
+.example-label,
+.news-tag,
+.step-number {
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.example-label {
+  font-size: 0.86rem;
+}
+
+.kicker,
+.inline-link,
+.back-link {
+  color: var(--blue);
+}
+
+.home-hero,
+.home-section,
+.cta,
+.entry-page,
+.listing-page {
+  padding: 4.5rem 0;
+}
+
+.home-hero {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  gap: 0.55rem;
+  align-items: center;
+  color: var(--red);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.status-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--red);
+}
+
+.home-hero h1,
+.entry-hero h1,
+.listing-page h1 {
+  font-size: clamp(2.8rem, 7vw, 5rem);
+}
+
+.hero-copy,
+.section-heading p,
+.feature-item p,
+.step-copy p,
+.news-copy p,
+.faq-item p,
+.entry-hero p,
+.prose p,
+.prose li,
+.card-copy p,
+.cta p {
+  max-width: 42rem;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.hero-main {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.hero-visual {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  justify-items: center;
+}
+
+.hero-visual img {
+  width: auto;
+  max-width: 100%;
+  max-height: 36rem;
+  height: auto;
+  object-fit: contain;
+}
+
+.hero-credit {
+  max-width: 28rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.hero-cta-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-top: 0.5rem;
+}
+
+.hero-handle {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.84rem;
+}
+
+.hero-handle a {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.section-heading,
+.entry-meta {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.section-heading h2,
+.cta h2,
+.video-placeholder h2 {
+  font-size: clamp(2.1rem, 5vw, 3.4rem);
+}
+
+.section-title {
+  display: inline-flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.section-title svg {
+  width: 1.2em;
+  height: 1.2em;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.section-heading-inline {
+  display: flex;
+  gap: 1.5rem;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.section-heading-inline > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.section-heading-inline > .inline-link {
+  flex-shrink: 0;
+}
+
+.guides-heading {
+  gap: 2rem;
+}
+
+.guides-heading > div {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.guides-heading h2 {
+  line-height: 1.18;
+}
+
+.guides-heading p {
+  margin-top: 0;
+}
+
+.example-shell {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.36fr) minmax(0, 0.64fr);
+  gap: 2.5rem;
+  margin-top: 2.5rem;
+}
+
+.example-tabs {
+  border-top: 0;
+}
+
+.example-tab {
+  width: 100%;
+  padding: 1rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--soft-rule);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.example-tab strong,
+.example-tab span {
+  display: block;
+}
+
+.example-tab strong {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.example-tab span {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.example-tab.is-active strong {
+  color: var(--red);
+}
+
+.example-output {
+  padding-top: 1.5rem;
+}
+
+.example-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
+  gap: 2rem;
+  align-items: start;
+  padding: 1.5rem;
+}
+
+.example-preview {
+  display: flex;
+  align-items: start;
+  justify-content: center;
+}
+
+.example-preview img {
+  width: 100%;
+  max-width: 26rem;
+  max-height: 22rem;
+  height: auto;
+  object-fit: contain;
+}
+
+.example-copy {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.example-panel[hidden] {
+  display: none;
+}
+
+.example-block {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.example-block p:last-child {
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.inline-danger-token {
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 0.95em;
+  font-weight: 700;
+}
+
+.text-danger {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.inline-token,
+.inline-handle-link {
+  color: var(--blue);
+  font-family: var(--mono);
+  font-size: 0.95em;
+  font-weight: 700;
+}
+
+.inline-handle-link {
+  text-decoration: underline;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.feature-item {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  row-gap: 0.7rem;
+  align-content: start;
+  padding: 1.5rem 1.5rem 1.5rem 0;
+  border-right: 1px solid var(--soft-rule);
+}
+
+.feature-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.25rem;
+}
+
+.feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.feature-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.feature-item:nth-child(2) {
+  padding-left: 1.5rem;
+}
+
+.feature-item:last-child {
+  padding-right: 0;
+  padding-left: 1.5rem;
+  border-right: 0;
+}
+
+.feature-item h3,
+.step-copy h3,
+.news-copy h3,
+.faq-item h3,
+.card-copy h3 {
+  font-size: 1.3rem;
+}
+
+.feature-item h3 {
+  color: var(--ink);
+  margin-bottom: 0;
+}
+
+.step-list,
+.news-list {
+  margin-top: 2.5rem;
+}
+
+.step-row,
+.news-item {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--soft-rule);
+  align-items: flex-start;
+}
+
+.news-item:last-child {
+  border-bottom: 0;
+}
+
+.step-row {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: center;
+}
+
+.step-row:last-child {
+  border-bottom: 0;
+}
+
+.step-number {
+  width: 4rem;
+  flex-shrink: 0;
+  color: var(--blue);
+  font-size: 1.8rem;
+  font-family: var(--display);
+  letter-spacing: -0.02em;
+}
+
+.step-copy {
+  display: grid;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+/* Usage section: steps on the left, mobile-recorded (portrait) video
+   on the right. The step column stretches to match the video height. */
+.usage-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3rem;
+  align-items: stretch;
+  margin-top: 2.5rem;
+}
+
+.usage-layout .step-list {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+/* No divider lines between the 1-2-3 steps */
+.usage-layout .step-row {
+  padding: 0;
+  border-bottom: 0;
+}
+
+.usage-video {
+  display: flex;
+  align-items: stretch;
+}
+
+.usage-video video {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: clamp(30rem, 62vh, 42rem);
+  object-fit: cover;
+  border: 1px solid var(--ink);
+  background: #000;
+}
+
+/* Portrait video embedded in a tutorial page */
+.tutorial-video {
+  display: flex;
+  justify-content: center;
+}
+
+.tutorial-video video {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: clamp(28rem, 60vh, 40rem);
+  object-fit: cover;
+  border: 1px solid var(--ink);
+  background: #000;
+}
+
+.news-item time {
+  width: 7rem;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.news-copy {
+  display: grid;
+  gap: 0.45rem;
+  flex: 1;
+}
+
+.news-tag {
+  color: var(--red);
+}
+
+.news-cover {
+  width: 10rem;
+  height: 7rem;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.guide-list {
+  display: grid;
+  gap: 0.85rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-list li {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  column-gap: 0.75rem;
+  row-gap: 0.3rem;
+  align-items: start;
+}
+
+.guide-mark {
+  color: var(--red);
+  font-size: 1.25rem;
+  line-height: 1;
+  grid-row: 1 / span 2;
+}
+
+.guide-list a {
+  color: var(--ink);
+  display: block;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.guide-list small {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cta {
+  gap: 2rem;
+}
+
+.footer-brand {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.footer-brand strong {
+  font-family: var(--display);
+}
+
+.footer-brand span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.listing-page,
+.entry-page {
+  display: grid;
+  gap: 2rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.content-card {
+  border: 1px solid var(--ink);
+}
+
+.content-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.card-copy {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.eyebrow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--muted);
+}
+
+.tag {
+  color: var(--red);
+}
+
+.soon {
+  color: var(--muted);
+}
+
+.entry-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+  gap: 2rem;
+}
+
+.entry-cover {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.video-placeholder {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid var(--ink);
+}
+
+.prose {
+  display: grid;
+  gap: 1rem;
+}
+
+.prose h2 {
+  margin-top: 1.5rem;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+}
+
+.prose h3 {
+  margin-top: 1rem;
+  font-size: 1.35rem;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
+.prose li + li {
+  margin-top: 0.35rem;
+}
+
+.prose img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+}
+
+.prose code {
+  font-family: var(--mono);
+  font-size: 0.95em;
+}
+
+/* Mobile nav toggle — hidden on desktop; menu flows inline via display:contents */
+.nav-toggle {
+  display: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--ink);
+  background: transparent;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-toggle-bars {
+  display: grid;
+  gap: 0.32rem;
+  width: 1.15rem;
+}
+
+.nav-toggle-bars span {
+  display: block;
+  height: 2px;
+  background: var(--ink);
+  transition: transform 180ms ease, opacity 140ms ease;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bars span:nth-child(1) {
+  transform: translateY(0.34rem) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bars span:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bars span:nth-child(3) {
+  transform: translateY(-0.34rem) rotate(-45deg);
+}
+
+.site-menu {
+  display: contents;
+}
+
+/* ============================================================
+   TABLET / iPad landscape (≤ 1024px)
+   Two-column grids, tighter gutters. Still a desktop-style nav.
+   ============================================================ */
+@media (max-width: 1024px) {
+  .shell {
+    width: min(1120px, calc(100vw - 2.5rem));
+  }
+
+  .home-hero,
+  .home-section,
+  .cta,
+  .entry-page,
+  .listing-page {
+    padding: 3.75rem 0;
+  }
+
+  .hero-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.68fr);
+    gap: 2rem;
+  }
+
+  .hero-visual img {
+    max-height: 30rem;
+  }
+
+  /* Feature carousel becomes a clean 2-column card grid */
+  .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    border-top: 0;
+    margin-top: 2rem;
+  }
+
+  .feature-item,
+  .feature-item:nth-child(2),
+  .feature-item:last-child {
+    grid-template-rows: auto 1fr;
+    padding: 1.5rem;
+    border: 1px solid var(--rule);
+  }
+
+  /* Article / tutorial cards: 2 across */
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* News stays a readable 2-column list of cards */
+  .news-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .news-item {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    border: 1px solid var(--rule);
+  }
+
+  .news-item time {
+    width: auto;
+    order: -1;
+  }
+
+  .news-cover {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    order: -2;
+  }
+
+  .example-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 0.6fr);
+    gap: 1.5rem;
+  }
+
+  .example-preview img {
+    max-width: 100%;
+    max-height: 20rem;
+  }
+}
+
+/* ============================================================
+   MOBILE + iPad portrait (≤ 820px)
+   Hamburger navigation, stacked hero, card-based sections.
+   ============================================================ */
+@media (max-width: 820px) {
+  .site-header {
+    position: sticky;
+  }
+
+  /* --- Navigation: collapse into a hamburger menu --- */
+  .nav-row {
+    gap: 0.75rem;
+    min-height: 3.75rem;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  /* Menu floats as a dropdown panel over the content instead of
+     pushing the page down / expanding the header bar */
+  .site-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: 0.25rem clamp(0.875rem, 5vw, 1.25rem) 1.25rem;
+    background: var(--paper);
+    border-top: 1px solid var(--soft-rule);
+    border-bottom: 1px solid var(--rule);
+    z-index: 40;
+  }
+
+  .site-menu.is-open {
+    display: flex;
+  }
+
+  .main-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+  }
+
+  .main-nav a {
+    padding: 0.95rem 0.25rem;
+    border-bottom: 1px solid var(--soft-rule);
+    font-size: 0.82rem;
+  }
+
+  .main-nav-page-link {
+    justify-content: space-between;
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .nav-actions .button {
+    flex: 1;
+  }
+
+  /* --- Section rhythm --- */
+  .home-hero,
+  .home-section,
+  .cta,
+  .entry-page,
+  .listing-page {
+    padding: 3rem 0;
+  }
+
+  .cta,
+  .section-heading-inline {
+    flex-direction: column;
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  .footer-row {
+    flex-direction: column;
+    align-items: start;
+    gap: 1.25rem;
+  }
+
+  /* --- Hero: stacked but compact --- */
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+
+  /* --- Usage: stack steps above the video --- */
+  .usage-layout {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+    margin-top: 2rem;
+  }
+
+  .usage-layout .step-list {
+    justify-content: flex-start;
+  }
+
+  .usage-video {
+    justify-content: center;
+  }
+
+  .usage-video video {
+    width: 100%;
+    max-width: 22rem;
+    height: auto;
+    max-height: 32rem;
+  }
+
+  .tutorial-video video {
+    width: 100%;
+    max-width: 22rem;
+    height: auto;
+    max-height: 32rem;
+  }
+
+  .hero-visual {
+    justify-items: stretch;
+  }
+
+  .hero-visual img {
+    width: 100%;
+    max-height: 24rem;
+  }
+
+  .hero-credit {
+    max-width: 100%;
+  }
+
+  /* --- Article header: fix broken grid stacking --- */
+  .entry-hero {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .entry-cover {
+    max-height: 24rem;
+    margin: 0 auto;
+  }
+
+  .guides-heading {
+    gap: 1.25rem;
+  }
+
+  .guides-heading > div {
+    gap: 1rem;
+  }
+
+  /* --- Examples: tab chips + a single stacked card --- */
+  .example-shell {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-top: 1.75rem;
+  }
+
+  .example-tabs {
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: none;
+  }
+
+  .example-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .example-tab {
+    min-width: 13rem;
+    padding: 0.85rem 0.9rem;
+    border: 1px solid var(--soft-rule);
+  }
+
+  .example-tab.is-active {
+    border-color: var(--red);
+  }
+
+  .example-output {
+    padding-top: 0;
+  }
+
+  .example-panel {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid var(--rule);
+  }
+
+  /* Screenshot first, then explanation — gives context up front */
+  .example-preview {
+    order: -1;
+    justify-content: center;
+  }
+
+  .example-preview img {
+    max-width: 100%;
+    max-height: 22rem;
+  }
+}
+
+/* ============================================================
+   PHONES (≤ 600px)
+   Single-column card stack, larger type, comfortable tap targets.
+   ============================================================ */
+@media (max-width: 600px) {
+  .shell {
+    width: min(1120px, calc(100vw - 1.75rem));
+  }
+
+  .home-hero,
+  .home-section,
+  .cta,
+  .entry-page,
+  .listing-page {
+    padding: 2.5rem 0;
+  }
+
+  .home-hero h1,
+  .entry-hero h1,
+  .listing-page h1 {
+    font-size: clamp(2.35rem, 11vw, 3.6rem);
+  }
+
+  .section-heading h2,
+  .cta h2,
+  .video-placeholder h2 {
+    font-size: clamp(1.9rem, 8vw, 2.6rem);
+  }
+
+  .hero-copy,
+  .section-heading p,
+  .feature-item p,
+  .step-copy p,
+  .news-copy p,
+  .entry-hero p,
+  .prose p,
+  .prose li,
+  .card-copy p,
+  .cta p {
+    font-size: 0.95rem;
+  }
+
+  .hero-handle {
+    font-size: 0.78rem;
+  }
+
+  .button {
+    min-height: 2.85rem;
+    padding: 0 1rem;
+    font-size: 0.78rem;
+  }
+
+  .hero-visual img {
+    max-height: 20rem;
+  }
+
+  /* Single-column card grids */
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .news-list {
+    grid-template-columns: 1fr;
+  }
+
+  /* Steps: compact numbered rows */
+  .step-list {
+    margin-top: 1.75rem;
+  }
+
+  .step-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    padding: 1.25rem 0;
+  }
+
+  .step-number {
+    width: auto;
+    font-size: 1.4rem;
+  }
+
+  /* CTA button goes full width */
+  .cta .button {
+    width: 100%;
+  }
+
+  .footer-links {
+    flex-wrap: wrap;
+    gap: 0.85rem 1.25rem;
+  }
+}
+
+/* ============================================================
+   SMALL PHONES (≤ 400px) — final tightening
+   ============================================================ */
+@media (max-width: 400px) {
+  .nav-row {
+    padding: 0.6rem 0;
+  }
+
+  .brand img {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .example-tab {
+    min-width: 11rem;
+  }
+
+  .example-tab strong {
+    font-size: 0.74rem;
+  }
+
+  .example-tab span {
+    font-size: 0.78rem;
+  }
+
+  .hero-visual img {
+    max-height: 17rem;
+  }
+
+  .guide-list li {
+    grid-template-columns: 1rem minmax(0, 1fr);
+    column-gap: 0.55rem;
+  }
+
+  .guide-list small {
+    display: block;
+    grid-column: 2;
+    margin-top: 0;
+    white-space: normal;
+  }
+}

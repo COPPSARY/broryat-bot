@@ -1,0 +1,161 @@
+---
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+import "../styles/global.css";
+import { SEO, SITE, UI, type Locale } from "../data/site";
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  alternateLocaleHref: string;
+  keywords?: readonly string[];
+  ogImage?: string;
+  ogType?: "website" | "article";
+  publishedTime?: string;
+  modifiedTime?: string;
+  section?: string;
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const {
+  locale,
+  title,
+  description,
+  alternateLocaleHref,
+  keywords,
+  ogImage,
+  ogType = "website",
+  publishedTime,
+  modifiedTime,
+  section,
+  structuredData,
+} = Astro.props;
+
+const ui = UI[locale];
+
+// Absolute URLs (Astro.site = https://broryat.tech)
+const canonicalURL = new URL(Astro.url.pathname, Astro.site).href;
+const alternateURL = new URL(alternateLocaleHref, Astro.site).href;
+const ogImageURL = new URL(ogImage ?? SEO.defaultOgImage, Astro.site).href;
+const logoURL = new URL("/branding/logo.png", Astro.site).href;
+
+// hreflang: which absolute URL belongs to which locale
+const khURL = locale === "kh" ? canonicalURL : alternateURL;
+const enURL = locale === "en" ? canonicalURL : alternateURL;
+
+const keywordsList = (keywords ?? SEO.keywords[locale]).join(", ");
+const ogLocale = SEO.ogLocale[locale];
+const ogLocaleAlt = SEO.ogLocale[locale === "kh" ? "en" : "kh"];
+
+// Site-wide structured data graph
+const graph: Record<string, unknown>[] = [
+  {
+    "@type": "Organization",
+    "@id": `${SEO.siteUrl}/#organization`,
+    name: SITE.name,
+    url: SEO.siteUrl,
+    logo: logoURL,
+    sameAs: [
+      SITE.telegramUrl,
+      ...SITE.footerLinks.map((link) => link.href),
+    ],
+  },
+  {
+    "@type": "WebSite",
+    "@id": `${SEO.siteUrl}/#website`,
+    url: SEO.siteUrl,
+    name: SITE.name,
+    description,
+    inLanguage: ogLocale,
+    publisher: { "@id": `${SEO.siteUrl}/#organization` },
+  },
+  {
+    "@type": "SoftwareApplication",
+    name: SITE.name,
+    description,
+    applicationCategory: "SecurityApplication",
+    operatingSystem: "Telegram",
+    url: SITE.telegramUrl,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    publisher: { "@id": `${SEO.siteUrl}/#organization` },
+  },
+];
+
+if (structuredData) {
+  graph.push(...(Array.isArray(structuredData) ? structuredData : [structuredData]));
+}
+
+const jsonLd = JSON.stringify({ "@context": "https://schema.org", "@graph": graph });
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content={keywordsList} />
+    <meta name="author" content="Sayana Studio" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content={SEO.themeColor} />
+
+    <link rel="canonical" href={canonicalURL} />
+
+    <!-- hreflang alternates -->
+    <link rel="alternate" hreflang="km" href={khURL} />
+    <link rel="alternate" hreflang="en" href={enURL} />
+    <link rel="alternate" hreflang="x-default" href={khURL} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:alt" content={title} />
+    <meta property="og:locale" content={ogLocale} />
+    <meta property="og:locale:alternate" content={ogLocaleAlt} />
+    {ogType === "article" && publishedTime && (
+      <meta property="article:published_time" content={publishedTime} />
+    )}
+    {ogType === "article" && modifiedTime && (
+      <meta property="article:modified_time" content={modifiedTime} />
+    )}
+    {ogType === "article" && section && (
+      <meta property="article:section" content={section} />
+    )}
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
+
+    <link rel="icon" type="image/png" href="/branding/logo.png" />
+    <link rel="apple-touch-icon" href="/branding/logo.png" />
+
+    <link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Khmer&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script type="application/ld+json" is:inline set:html={jsonLd} />
+  </head>
+  <body>
+    <Header locale={locale} alternateLocaleHref={alternateLocaleHref} />
+    <slot />
+    <Footer locale={locale} note={ui.footerNote} links={SITE.footerLinks} />
+  </body>
+</html>

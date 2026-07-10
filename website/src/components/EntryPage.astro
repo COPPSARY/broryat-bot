@@ -1,0 +1,98 @@
+---
+import { render, type CollectionEntry } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SEO, SITE, UI, formatDate, type Locale } from "../data/site";
+import { localizePath } from "../data/site";
+
+interface Props {
+  locale: Locale;
+  collection: "articles" | "tutorials";
+  entry: CollectionEntry<"articles"> | CollectionEntry<"tutorials">;
+  alternateLocaleHref: string;
+}
+
+const { locale, collection, entry, alternateLocaleHref } = Astro.props;
+const ui = UI[locale];
+const { Content } = await render(entry);
+const isArticle = collection === "articles";
+const articleEntry = isArticle ? (entry as CollectionEntry<"articles">) : null;
+const tutorialEntry = isArticle ? null : (entry as CollectionEntry<"tutorials">);
+
+const coverImageURL = new URL(entry.data.coverImage, Astro.site).href;
+const pageURL = new URL(Astro.url.pathname, Astro.site).href;
+
+const structuredData = {
+  "@type": isArticle ? "TechArticle" : "HowTo",
+  headline: entry.data.title,
+  name: entry.data.title,
+  description: entry.data.description,
+  image: coverImageURL,
+  inLanguage: SEO.ogLocale[locale],
+  mainEntityOfPage: pageURL,
+  author: { "@type": "Organization", name: "Sayana Studio" },
+  publisher: { "@id": `${SEO.siteUrl}/#organization` },
+  ...(articleEntry
+    ? { datePublished: articleEntry.data.date.toISOString() }
+    : {}),
+};
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${entry.data.title} | ${SITE.name}`}
+  description={entry.data.description}
+  alternateLocaleHref={alternateLocaleHref}
+  ogType="article"
+  ogImage={entry.data.coverImage}
+  publishedTime={articleEntry ? articleEntry.data.date.toISOString() : undefined}
+  section={articleEntry ? articleEntry.data.tag : ui.tutorialLabel}
+  structuredData={structuredData}
+>
+  <main class="shell entry-page">
+    <a class="back-link" href={localizePath(locale, collection)}>
+      {isArticle ? ui.backToArticles : ui.backToTutorials}
+    </a>
+
+    <header class="entry-hero">
+      <div class="entry-meta">
+        <p class="eyebrow">
+          <span class="tag">{articleEntry ? articleEntry.data.tag : ui.tutorialLabel}</span>
+          {articleEntry && (
+            <time datetime={articleEntry.data.date.toISOString()}>
+              {formatDate(articleEntry.data.date, locale)}
+            </time>
+          )}
+        </p>
+        <h1>{entry.data.title}</h1>
+        <p>{entry.data.description}</p>
+      </div>
+      <img class="entry-cover" src={entry.data.coverImage} alt="" />
+    </header>
+
+    {tutorialEntry && tutorialEntry.data.videoUrl && (
+      <section class="tutorial-video">
+        <video
+          src={tutorialEntry.data.videoUrl}
+          autoplay
+          muted
+          loop
+          playsinline
+          preload="metadata"
+        >
+        </video>
+      </section>
+    )}
+
+    {tutorialEntry && !tutorialEntry.data.videoUrl && (
+      <section class="video-placeholder">
+        <p class="eyebrow">{ui.videoComingSoon}</p>
+        <h2>{ui.videoComingSoon}</h2>
+        <p>{ui.videoPlaceholder}</p>
+      </section>
+    )}
+
+    <article class="prose">
+      <Content />
+    </article>
+  </main>
+</BaseLayout>

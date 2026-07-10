@@ -1,0 +1,44 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ArticleCard from "./ArticleCard.astro";
+import TutorialCard from "./TutorialCard.astro";
+import { SITE, UI, type Locale } from "../data/site";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  locale: Locale;
+  collection: "articles" | "tutorials";
+  entries: CollectionEntry<"articles">[] | CollectionEntry<"tutorials">[];
+  alternateLocaleHref: string;
+}
+
+const { locale, collection, entries, alternateLocaleHref } = Astro.props;
+const ui = UI[locale];
+const isArticles = collection === "articles";
+const title = isArticles ? ui.articles : ui.tutorials;
+const description = isArticles ? ui.latestArticlesIntro : ui.tutorialsIntro;
+const articleEntries = isArticles ? (entries as CollectionEntry<"articles">[]) : [];
+const tutorialEntries = isArticles ? [] : (entries as CollectionEntry<"tutorials">[]);
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${SITE.name} | ${title}`}
+  description={description}
+  alternateLocaleHref={alternateLocaleHref}
+>
+  <main class="shell listing-page">
+    <header class="section-heading">
+      <p class="kicker">{title}</p>
+      <h1>{title}</h1>
+      <p>{description}</p>
+    </header>
+
+    <section class="card-grid">
+      {isArticles &&
+        articleEntries.map((article) => <ArticleCard locale={locale} article={article} />)}
+      {!isArticles &&
+        tutorialEntries.map((tutorial) => <TutorialCard locale={locale} tutorial={tutorial} />)}
+    </section>
+  </main>
+</BaseLayout>

@@ -1,0 +1,93 @@
+---
+import LanguageSwitch from "./LanguageSwitch.astro";
+import { SITE, UI, localizePath, type Locale } from "../data/site";
+
+interface Props {
+  locale: Locale;
+  alternateLocaleHref: string;
+}
+
+const { locale, alternateLocaleHref } = Astro.props;
+const ui = UI[locale];
+---
+
+<header class="site-header">
+  <div class="flag-strip" aria-hidden="true">
+    <span class="blue"></span>
+    <span class="red"></span>
+    <span class="blue"></span>
+  </div>
+  <div class="shell nav-row">
+    <a class="brand" href={localizePath(locale)}>
+      <img src="/branding/logo.png" alt="Broryat logo" />
+      <span>
+        <strong>{ui.brandName}</strong>
+      </span>
+    </a>
+
+    <button
+      class="nav-toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="site-menu"
+      aria-label="Menu"
+      data-nav-toggle
+    >
+      <span class="nav-toggle-bars" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+    </button>
+
+    <div class="site-menu" id="site-menu" data-nav-menu>
+      <nav class="main-nav" aria-label="Primary">
+        <a href={localizePath(locale)}>{ui.home}</a>
+        <a href={`${localizePath(locale)}#how-to-use`}>{ui.navHow}</a>
+        <a href={`${localizePath(locale)}#news`}>{ui.navNews}</a>
+        <a href={`${localizePath(locale)}#guides`}>{ui.navGuides}</a>
+        <a class="main-nav-page-link" href={localizePath(locale, "articles")}>
+          <span>{ui.articles}</span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </nav>
+
+      <div class="nav-actions">
+        <LanguageSwitch locale={locale} href={alternateLocaleHref} />
+        <a class="button primary" href={SITE.telegramUrl} target="_blank" rel="noreferrer">
+          {ui.goToBot}
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const toggle = document.querySelector("[data-nav-toggle]");
+      const menu = document.querySelector("[data-nav-menu]");
+      if (!toggle || !menu) return;
+
+      const setOpen = (open) => {
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        menu.classList.toggle("is-open", open);
+        document.body.classList.toggle("nav-open", open);
+      };
+
+      toggle.addEventListener("click", () => {
+        setOpen(toggle.getAttribute("aria-expanded") !== "true");
+      });
+
+      // Close the menu after tapping a link
+      menu.querySelectorAll("a").forEach((link) => {
+        link.addEventListener("click", () => setOpen(false));
+      });
+
+      // Reset state when resizing back to desktop
+      const desktop = window.matchMedia("(min-width: 821px)");
+      const handleChange = () => {
+        if (desktop.matches) setOpen(false);
+      };
+      desktop.addEventListener("change", handleChange);
+    })();
+  </script>
+</header>
