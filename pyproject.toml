@@ -1,0 +1,28 @@
+[project]
+name = "broryat-ai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "google-genai>=2.11.0",
+    "httpx>=0.28.1",
+    "openai>=2.45.0",
+    "psycopg2-binary>=2.9.12",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "python-telegram-bot[job-queue]>=20",
+    "sqlmodel>=0.0.39",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
+    "time-machine>=3.2.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
