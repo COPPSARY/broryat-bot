@@ -19,10 +19,7 @@ class ScanRecord(SQLModel, table=True):
     sha256: str | None = None
     file_name: str | None = None
     language: str
-    category: list[str] | None = Field(default=None, sa_column=Column(JSON))
     ai_risk_level: str | None = None
-    ai_confidence: float | None = None
-    ai_explanation: str | None = None
     vt_status: str | None = None
     vt_malicious_count: int | None = None
     vt_total_engines: int | None = None

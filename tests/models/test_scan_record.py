@@ -15,10 +15,7 @@ def _record(**overrides):
         url="https://example.com/login",
         domain="example.com",
         language="en",
-        category=["credential_theft"],
         ai_risk_level="HIGH",
-        ai_confidence=0.95,
-        ai_explanation="Fake login page.",
         vt_status="malicious",
         vt_malicious_count=10,
         vt_total_engines=70,
@@ -44,7 +41,6 @@ def test_scan_record_holds_all_fields():
     record = _record()
     assert record.chat_id == 123
     assert record.url == "https://example.com/login"
-    assert record.category == ["credential_theft"]
     assert record.vt_detection_names == ["Trojan.GenericKD"]
     assert record.final_risk_level == "HIGH"
 
@@ -60,7 +56,6 @@ def test_scan_record_optional_fields_default_to_none():
     )
     assert record.url is None
     assert record.sha256 is None
-    assert record.category is None
     assert record.vt_detection_names is None
 
 
