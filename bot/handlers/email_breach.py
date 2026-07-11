@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
 from bot.handlers.commands import _resolve_language
+from bot.handlers.progress import run_with_progress
 from bot.schemas.breach import BreachCheckResult
 from bot.services.breach_check.client import BreachCheckClient, BreachCheckError
 
@@ -26,6 +27,13 @@ _DATA_TYPE_KM = {
 }
 
 _RISKY_PASSWORD_LEVELS = {"easytocrack", "plaintext"}
+
+_MAX_BREACHES_SHOWN = 8
+
+_MORE_BREACHES = {
+    "en": "…and {count} more breach{plural}.",
+    "km": "…និងព័ត៌មានលេចធ្លាយផ្សេងទៀតចំនួន {count}។",
+}
 
 _NOT_FOUND = {
     "en": (
@@ -79,8 +87,11 @@ def _format_found_single(result: BreachCheckResult, language: str) -> str:
         "km": f"⚠️ អ៊ីមែលរបស់អ្នកត្រូវបានរកឃើញនៅក្នុងព័ត៌មានលេចធ្លាយចំនួន {count}។",
     }[language]
 
+    shown = result.records[:_MAX_BREACHES_SHOWN]
+    remaining = count - len(shown)
+
     lines = [header, ""]
-    for record in result.records:
+    for record in shown:
         data_types = ", ".join(_translate_data_type(d, language) for d in record.xposed_data)
         exposed_label = "Exposed" if language == "en" else "ព័ត៌មានលេចធ្លាយ"
         lines.append(f"📍 {record.breach} ({record.xposed_date})")
@@ -88,6 +99,10 @@ def _format_found_single(result: BreachCheckResult, language: str) -> str:
         note = _password_note(record.password_risk, language)
         if note:
             lines.append(f"   {note}")
+        lines.append("")
+
+    if remaining > 0:
+        lines.append(_MORE_BREACHES[language].format(count=remaining, plural="es" if remaining != 1 else ""))
         lines.append("")
 
     lines.append(_ADVICE[language])
@@ -127,6 +142,14 @@ def _bilingual(mapping: dict[str, str], language: str | None) -> str:
     return f"{mapping['en']}\n\n{mapping['km']}"
 
 
+async def _safe_check(breach_client: BreachCheckClient, email: str) -> BreachCheckResult | None:
+    try:
+        return await breach_client.check(email)
+    except BreachCheckError:
+        logger.exception("Email breach check failed for %s", email)
+        return None
+
+
 async def email_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -145,11 +168,12 @@ async def email_command(
         await update.message.reply_text(_bilingual(_INVALID_EMAIL, language))
         return
 
-    try:
-        result = await breach_client.check(email)
-    except BreachCheckError:
-        logger.exception("Email breach check failed for %s", email)
-        await update.message.reply_text(_bilingual(_CHECK_FAILED, language))
+    placeholder, result = await run_with_progress(
+        update.message, _safe_check(breach_client, email), language or "en"
+    )
+
+    if result is None:
+        await placeholder.edit_text(_bilingual(_CHECK_FAILED, language))
         return
 
-    await update.message.reply_text(_format_breach_report(result, language))
+    await placeholder.edit_text(_format_breach_report(result, language))

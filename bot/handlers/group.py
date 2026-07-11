@@ -14,12 +14,17 @@ from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
-from bot.utils.trusted_domains import is_trusted_domain
+from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
 
 _MALWARE_REMOVED = {
     "en": "⚠️ A message was removed — it contained a malicious link or file.",
     "km": "⚠️ សារមួយត្រូវបានលុបចេញ ដោយសារវាមានផ្ទុកលីងបោកប្រាស់ ឬឯកសារមានមេរោគ។",
+}
+
+_OWN_WEBSITE = {
+    "en": "🤖 This is our own official website. No need to worry, and no scan needed!",
+    "km": "🤖 នេះជាគេហទំព័រផ្លូវការរបស់ពួកយើងផ្ទាល់។ មិនចាំបាច់បារម្ភទេ ហើយក៏មិនចាំបាច់ស្កេនដែរ!",
 }
 
 
@@ -29,8 +34,16 @@ def _is_vt_malicious(result: ScanResult) -> bool:
     )
 
 
+def _is_lone_link(text: str, urls: list[str]) -> bool:
+    return len(urls) == 1 and is_message_only_urls(text, urls)
+
+
 def _is_lone_trusted_link(text: str, urls: list[str]) -> bool:
-    return len(urls) == 1 and is_message_only_urls(text, urls) and is_trusted_domain(urls[0])
+    return _is_lone_link(text, urls) and is_trusted_domain(urls[0])
+
+
+def _is_lone_own_website_link(text: str, urls: list[str]) -> bool:
+    return _is_lone_link(text, urls) and is_own_domain(urls[0])
 
 
 _DAILY_LIMIT = 2
@@ -66,11 +79,15 @@ async def handle_group_message(
     if document is None and not urls:
         return
 
-    if document is None and _is_lone_trusted_link(text, urls):
-        return
-
     stored_language = await group_pref_repo.get_language(message.chat_id)
     language = stored_language or "km"
+
+    if document is None and _is_lone_own_website_link(text, urls):
+        await reply_with_markdown(message, _OWN_WEBSITE[language])
+        return
+
+    if document is None and _is_lone_trusted_link(text, urls):
+        return
 
     if document is not None:
         if document.file_size > MAX_FILE_SIZE_BYTES:
