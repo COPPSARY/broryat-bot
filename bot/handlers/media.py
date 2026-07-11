@@ -8,7 +8,7 @@ from bot.handlers.private import _limit_reached_message as _private_limit_reache
 from bot.schemas.scan import ScanRequest
 from bot.services.pipeline import ScanPipeline
 from bot.utils.language import detect_language
-from bot.utils.trusted_domains import is_trusted_domain
+from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
 
 _MEDIA_NOT_SUPPORTED = {
@@ -18,7 +18,12 @@ _MEDIA_NOT_SUPPORTED = {
 
 _TRUSTED_SITE = {
     "en": "✅ This is a well-known, trusted website. No scan needed.",
-    "km": "✅ នេះជាគេហទំព័រដែលគេស្គាល់ ហើយអាចទុកចិត្តបាន។ មិនចាំបាច់ស្កេនទេ។",
+    "km": "✅ នេះជាគេហទំព័រផ្លូវការដែលគេស្គាល់ទូទៅ និងមានសុវត្ថិភាពខ្ពស់។ លោកអ្នកអាចទុកចិត្តបាន ដោយមិនបាច់ត្រូវការស្កេនឡើយបាទ/ចាស! ",
+}
+
+_OWN_WEBSITE = {
+    "en": "🤖 This is our official website. Please rest assured, there is no need to scan it!",
+    "km": "🤖 នេះជាគេហទំព័រផ្លូវការរបស់ពួកយើងខ្ញុំផ្ទាល់។ សូមលោកអ្នកកុំបារម្ភអី បណ្តាញនេះមានសុវត្ថិភាពខ្ពស់ និងមិនបាច់ត្រូវការស្កេនឡើយបាទ/ចាស! ",
 }
 
 
@@ -34,8 +39,22 @@ def _trusted_site_message(language: str | None) -> str:
     return f"{_TRUSTED_SITE['en']}\n\n{_TRUSTED_SITE['km']}"
 
 
+def _own_website_message(language: str | None) -> str:
+    if language:
+        return _OWN_WEBSITE[language]
+    return f"{_OWN_WEBSITE['en']}\n\n{_OWN_WEBSITE['km']}"
+
+
+def _is_lone_link(caption: str, urls: list[str]) -> bool:
+    return len(urls) == 1 and is_message_only_urls(caption, urls)
+
+
 def _is_lone_trusted_link(caption: str, urls: list[str]) -> bool:
-    return len(urls) == 1 and is_message_only_urls(caption, urls) and is_trusted_domain(urls[0])
+    return _is_lone_link(caption, urls) and is_trusted_domain(urls[0])
+
+
+def _is_lone_own_website_link(caption: str, urls: list[str]) -> bool:
+    return _is_lone_link(caption, urls) and is_own_domain(urls[0])
 
 
 async def handle_unsupported_media(
@@ -60,6 +79,11 @@ async def handle_unsupported_media(
             await message.reply_text(_private_fallback_text(stored_language))
         else:
             await message.reply_text(_MEDIA_NOT_SUPPORTED[stored_language or "km"])
+        return
+
+    if _is_lone_own_website_link(caption, urls):
+        language = stored_language if is_private else (stored_language or "km")
+        await message.reply_text(_own_website_message(language))
         return
 
     if _is_lone_trusted_link(caption, urls):

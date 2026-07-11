@@ -128,6 +128,33 @@ async def test_group_photo_with_trusted_caption_url_skips_scan_entirely():
     update.message.reply_text.assert_not_awaited()
 
 
+async def test_private_photo_with_own_website_caption_url_gets_own_site_message():
+    update = _update(caption="https://broryat.tech", chat_type="private")
+    pipeline = _pipeline()
+
+    await handle_unsupported_media(
+        update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo()
+    )
+
+    pipeline.run.assert_not_awaited()
+    text = update.message.reply_text.call_args[0][0]
+    assert "our" in text.lower() and "website" in text.lower()
+
+
+async def test_group_photo_with_own_website_caption_url_gets_own_site_message():
+    update = _update(caption="https://broryat.tech", chat_type="group")
+    pipeline = _pipeline()
+
+    await handle_unsupported_media(
+        update, MagicMock(), pipeline, _user_pref_repo(), _group_pref_repo(language="en")
+    )
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_awaited_once()
+    text = update.message.reply_text.call_args[0][0]
+    assert "our" in text.lower() and "website" in text.lower()
+
+
 async def test_private_daily_limit_reached_blocks_scan():
     update = _update(caption="check this out https://example.com", chat_type="private")
     pipeline = _pipeline()

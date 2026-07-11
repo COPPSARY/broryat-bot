@@ -17,11 +17,13 @@ from bot.handlers.commands import (
     start_command,
     use_command,
 )
+from bot.handlers.email_breach import email_command
 from bot.handlers.group import handle_group_message
 from bot.handlers.language import handle_language_choice
 from bot.handlers.media import handle_unsupported_media
 from bot.handlers.private import handle_private_message
 from bot.handlers.report import handle_report_callback
+from bot.services.breach_check.client import BreachCheckClient
 from bot.services.pipeline import ScanPipeline
 
 BOT_COMMANDS = [
@@ -33,6 +35,7 @@ BOT_COMMANDS = [
     BotCommand("addgroup", "How to add me to a group"),
     BotCommand("donate", "Support this project"),
     BotCommand("language", "Change your language"),
+    BotCommand("email", "Check if an email was in a data breach"),
 ]
 
 
@@ -49,6 +52,7 @@ def register_handlers(
     report_repo: ReportRepository,
     scan_repo: ScanRepository,
     admin_chat_id: int | None,
+    breach_client: BreachCheckClient,
 ) -> None:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(
@@ -91,6 +95,18 @@ def register_handlers(
         CommandHandler(
             "language",
             partial(language_command, user_pref_repo=user_pref_repo, group_pref_repo=group_pref_repo),
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "email",
+            partial(
+                email_command,
+                breach_client=breach_client,
+                user_pref_repo=user_pref_repo,
+                group_pref_repo=group_pref_repo,
+            ),
         )
     )
 

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from telegram.error import BadRequest
 
+from bot.handlers import group as group_module
 from bot.handlers.group import handle_group_message
 from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
@@ -14,6 +15,13 @@ from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
 def mock_sleep():
     with patch("bot.handlers.group.asyncio.sleep", new=AsyncMock()) as sleep_mock:
         yield sleep_mock
+
+
+@pytest.fixture(autouse=True)
+def reset_limit_notified():
+    group_module._LIMIT_NOTIFIED.clear()
+    yield
+    group_module._LIMIT_NOTIFIED.clear()
 
 
 def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file=None, vt_url=None):
@@ -115,6 +123,16 @@ async def test_lone_trusted_domain_link_skips_scan_entirely():
     update.message.reply_text.assert_not_awaited()
 
 
+async def test_own_website_link_skips_scan_with_own_site_message():
+    update = _update(text="https://broryat.tech")
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_awaited_once()
+
+
 async def test_trusted_domain_link_with_other_text_still_scanned():
     update = _update(text="You won a prize, claim it at https://google.com now!")
     pipeline = _pipeline()
@@ -136,6 +154,32 @@ async def test_daily_limit_reached_blocks_scan_with_message():
     update.message.reply_text.assert_awaited_once()
     text = update.message.reply_text.call_args[0][0]
     assert "២" in text
+
+
+async def test_daily_limit_message_shown_briefly_then_deleted(mock_sleep):
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    placeholder = update.message.reply_text.return_value
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    mock_sleep.assert_awaited_once_with(3)
+    placeholder.delete.assert_awaited_once()
+
+
+async def test_daily_limit_message_not_sent_again_for_same_chat():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+    update.message.reply_text.reset_mock()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
 
 
 async def test_below_daily_limit_still_scans():

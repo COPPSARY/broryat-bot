@@ -122,9 +122,24 @@ TRUSTED_DOMAINS = frozenset({
 })
 
 
+OWN_DOMAIN = "broryat.tech"
+
+
+def _matches_domain_suffix(url: str, domain: str) -> bool:
+    normalized = url if "://" in url else f"https://{url}"
+    host = urlparse(normalized).netloc.lower()
+    labels = host.split(".")
+
+    return any(".".join(labels[i:]) == domain for i in range(len(labels)))
+
+
 def is_trusted_domain(url: str) -> bool:
     normalized = url if "://" in url else f"https://{url}"
     host = urlparse(normalized).netloc.lower()
     labels = host.split(".")
 
     return any(".".join(labels[i:]) in TRUSTED_DOMAINS for i in range(len(labels)))
+
+
+def is_own_domain(url: str) -> bool:
+    return _matches_domain_suffix(url, OWN_DOMAIN)

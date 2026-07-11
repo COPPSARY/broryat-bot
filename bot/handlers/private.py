@@ -18,12 +18,12 @@ from bot.handlers.commands import (
 from bot.handlers.formatting import format_response
 from bot.handlers.keyboards import resolve_menu_topic, virustotal_keyboard
 from bot.handlers.progress import run_with_progress
-from bot.handlers.reply import edit_with_markdown
+from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
 from bot.utils.language import detect_language
-from bot.utils.trusted_domains import is_trusted_domain
+from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
 
 _FORWARD_ONLY_FALLBACK = {
@@ -48,7 +48,7 @@ def _forward_only_fallback(language: str | None) -> str:
 
 _TRUSTED_SITE = {
     "en": "✅ This is a well-known, trusted website. No scan needed.",
-    "km": "✅ នេះជាគេហទំព័រដែលគេស្គាល់ ហើយអាចទុកចិត្តបាន។ មិនចាំបាច់ស្កេនទេ។",
+    "km": "✅ នេះជាគេហទំព័រផ្លូវការដែលគេស្គាល់ទូទៅ និងមានសុវត្ថិភាពខ្ពស់។ លោកអ្នកអាចទុកចិត្តបាន ដោយមិនបាច់ត្រូវការស្កេនឡើយបាទ/ចាស! ",
 }
 
 
@@ -58,8 +58,28 @@ def _trusted_site_message(language: str | None) -> str:
     return f"{_TRUSTED_SITE['en']}\n\n{_TRUSTED_SITE['km']}"
 
 
+_OWN_WEBSITE = {
+    "en": "🤖 This is our official website. Please rest assured, there is no need to scan it!",
+    "km": "🤖 នេះជាគេហទំព័រផ្លូវការរបស់ពួកយើងខ្ញុំផ្ទាល់។ សូមលោកអ្នកកុំបារម្ភអី បណ្តាញនេះមានសុវត្ថិភាពខ្ពស់ និងមិនបាច់ត្រូវការស្កេនឡើយបាទ/ចាស! ",
+}
+
+
+def _own_website_message(language: str | None) -> str:
+    if language:
+        return _OWN_WEBSITE[language]
+    return f"{_OWN_WEBSITE['en']}\n\n{_OWN_WEBSITE['km']}"
+
+
+def _is_lone_link(text: str, urls: list[str]) -> bool:
+    return len(urls) == 1 and is_message_only_urls(text, urls)
+
+
 def _is_lone_trusted_link(text: str, urls: list[str]) -> bool:
-    return len(urls) == 1 and is_message_only_urls(text, urls) and is_trusted_domain(urls[0])
+    return _is_lone_link(text, urls) and is_trusted_domain(urls[0])
+
+
+def _is_lone_own_website_link(text: str, urls: list[str]) -> bool:
+    return _is_lone_link(text, urls) and is_own_domain(urls[0])
 
 
 _DAILY_LIMIT = 2
@@ -69,11 +89,22 @@ _LIMIT_REACHED = {
     "km": "🚦 អ្នកបានប្រើប្រាស់ការស្កេនចំនួន ២ ដងសម្រាប់ថ្ងៃនេះអស់ហើយ។ សូមព្យាយាមម្តងទៀតក្នុងរយៈពេល ២៤ម៉ោង។",
 }
 
+_MAX_SIZE_REACHED = {
+    "en": "🚦 The file you sent is too large to scan. Please send a smaller file.",
+    "km": "🚦 ឯកសារដែលអ្នកផ្ញើមកមានទំហំធំពេក ដើម្បីស្កេន។ សូមផ្ញើឯកសារតូចជាងនេះ។",
+}
+
 
 def _limit_reached_message(language: str | None) -> str:
     if language:
         return _LIMIT_REACHED[language]
     return f"{_LIMIT_REACHED['en']}\n\n{_LIMIT_REACHED['km']}"
+
+
+def _max_size_message(language: str | None) -> str:
+    if language:
+        return _MAX_SIZE_REACHED[language]
+    return f"{_MAX_SIZE_REACHED['en']}\n\n{_MAX_SIZE_REACHED['km']}"
 
 
 _MENU_HANDLERS = {
@@ -119,7 +150,7 @@ async def handle_private_message(
 
     if document is not None:
         if document.file_size > MAX_FILE_SIZE_BYTES:
-            await message.reply_text("Sorry, this file is too large to scan.")
+            await reply_with_markdown(message, _max_size_message(stored_language))
             return
 
         tg_file = await context.bot.get_file(document.file_id)
@@ -144,11 +175,15 @@ async def handle_private_message(
         forwarded = getattr(message, "forward_origin", None) is not None
 
         if not urls and not forwarded:
-            await message.reply_text(_forward_only_fallback(stored_language))
+            await reply_with_markdown(message, _forward_only_fallback(stored_language))
+            return
+
+        if _is_lone_own_website_link(text, urls):
+            await reply_with_markdown(message, _own_website_message(stored_language))
             return
 
         if _is_lone_trusted_link(text, urls):
-            await message.reply_text(_trusted_site_message(stored_language))
+            await reply_with_markdown(message, _trusted_site_message(stored_language))
             return
 
         request = ScanRequest(
@@ -162,7 +197,7 @@ async def handle_private_message(
         )
 
     if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
-        await message.reply_text(_limit_reached_message(request.language))
+        await reply_with_markdown(message, _limit_reached_message(request.language))
         return
 
     await run_private_scan(message, pipeline, request.language, request)

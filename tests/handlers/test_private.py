@@ -267,6 +267,18 @@ async def test_trusted_domain_link_with_other_text_still_scanned():
     pipeline.run.assert_awaited_once()
 
 
+async def test_own_website_link_skips_scan_with_own_site_message():
+    update = _update(text="https://broryat.tech")
+    pipeline = _pipeline()
+
+    await handle_private_message(update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo())
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_awaited_once()
+    text = update.message.reply_text.call_args[0][0]
+    assert "our" in text.lower() and "website" in text.lower()
+
+
 async def test_menu_button_tap_in_khmer_dispatches_correctly():
     update = _update(text="🔑 ពាក្យសម្ងាត់")
     pipeline = _pipeline()

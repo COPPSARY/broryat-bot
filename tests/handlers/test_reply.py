@@ -15,6 +15,26 @@ async def test_sends_with_markdown_parse_mode():
     message.reply_text.assert_awaited_once_with("*bold* text", parse_mode=ParseMode.MARKDOWN)
 
 
+async def test_returns_the_sent_message():
+    message = AsyncMock()
+    sent = object()
+    message.reply_text.return_value = sent
+
+    result = await reply_with_markdown(message, "text")
+
+    assert result is sent
+
+
+async def test_returns_the_sent_message_on_fallback():
+    message = AsyncMock()
+    sent = object()
+    message.reply_text.side_effect = [BadRequest("Can't parse entities"), sent]
+
+    result = await reply_with_markdown(message, "*unclosed")
+
+    assert result is sent
+
+
 async def test_falls_back_to_plain_text_when_markdown_parsing_fails():
     message = AsyncMock()
     message.reply_text.side_effect = [BadRequest("Can't parse entities"), None]

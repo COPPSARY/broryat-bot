@@ -1,4 +1,4 @@
-from bot.utils.trusted_domains import is_trusted_domain
+from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 
 
 def test_exact_trusted_domain_match():
@@ -57,3 +57,18 @@ def test_more_regional_and_mainstream_domains_are_trusted():
     assert is_trusted_domain("https://line.me") is True
     assert is_trusted_domain("https://booking.com") is True
     assert is_trusted_domain("https://discord.com") is True
+
+
+def test_own_domain_is_recognized():
+    assert is_own_domain("https://broryat.tech") is True
+    assert is_own_domain("https://www.broryat.tech") is True
+    assert is_own_domain("broryat.tech") is True
+
+
+def test_lookalike_of_own_domain_is_not_recognized():
+    assert is_own_domain("https://broryat.tech.attacker.example") is False
+    assert is_own_domain("https://broryat-tech.com") is False
+
+
+def test_other_trusted_domain_is_not_own_domain():
+    assert is_own_domain("https://google.com") is False

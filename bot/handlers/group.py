@@ -10,7 +10,7 @@ from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.handlers.formatting import format_response
 from bot.handlers.keyboards import virustotal_keyboard
 from bot.handlers.progress import run_with_progress
-from bot.handlers.reply import edit_with_markdown
+from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
@@ -36,9 +36,16 @@ def _is_lone_trusted_link(text: str, urls: list[str]) -> bool:
 _DAILY_LIMIT = 2
 
 _LIMIT_REACHED = {
-    "en": "🚦 This group has used its 2 free scans for today. Please try again in 24 hours.",
-    "km": "🚦 ក្រុមនេះបានប្រើប្រាស់ការស្កេនចំនួន ២ ដងសម្រាប់ថ្ងៃនេះអស់ហើយ។ សូមព្យាយាមម្តងទៀតក្នុងរយៈពេល ២៤ម៉ោង។",
+    "en": "🚦 Your group has used its 2 free scans for today. Please try again in 24 hours.",
+    "km": "🚦 ក្រុមរបស់អ្នកបានប្រើប្រាស់ការស្កេនចំនួន ២ ដងសម្រាប់ថ្ងៃនេះអស់ហើយ។ សូមព្យាយាមម្តងទៀតក្នុងរយៈពេល ២៤ម៉ោង។",
 }
+
+_MAX_SIZE_REACHED = {
+    "en": "🚦 The file you sent is too large to scan. Please send a smaller file.",
+    "km": "🚦 ឯកសារដែលអ្នកផ្ញើមកមានទំហំធំពេក ដើម្បីស្កេន។ សូមផ្ញើឯកសារតូចជាងនេះ។",
+}
+
+_LIMIT_NOTIFIED: set[int] = set()
 
 
 async def handle_group_message(
@@ -67,7 +74,7 @@ async def handle_group_message(
 
     if document is not None:
         if document.file_size > MAX_FILE_SIZE_BYTES:
-            await message.reply_text("Sorry, this file is too large to scan.")
+            await reply_with_markdown(message, _MAX_SIZE_REACHED[language])
             return
 
         tg_file = await context.bot.get_file(document.file_id)
@@ -97,9 +104,14 @@ async def handle_group_message(
         )
 
     if await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT:
-        await message.reply_text(_LIMIT_REACHED[language])
+        if message.chat_id not in _LIMIT_NOTIFIED:
+            _LIMIT_NOTIFIED.add(message.chat_id)
+            placeholder = await reply_with_markdown(message, _LIMIT_REACHED[language])
+            await asyncio.sleep(3)
+            await placeholder.delete()
         return
 
+    _LIMIT_NOTIFIED.discard(message.chat_id)
     await run_group_scan(message, context, pipeline, language, request)
 
 
