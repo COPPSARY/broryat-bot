@@ -23,6 +23,7 @@ from bot.schemas.scan import ScanRequest
 from bot.services.ai.image_extractor import HuggingFaceImageExtractor, ImageExtractionError
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
+from bot.utils.images import is_image_document, prepare_image_for_ocr
 from bot.utils.language import detect_language
 from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
@@ -166,6 +167,7 @@ async def handle_private_message(
     pipeline: ScanPipeline,
     user_pref_repo: UserPreferenceRepository,
     group_pref_repo: GroupPreferenceRepository,
+    image_extractor: HuggingFaceImageExtractor,
 ) -> None:
     message = update.message
     document = message.document
@@ -182,6 +184,13 @@ async def handle_private_message(
     if document is not None:
         if document.file_size > MAX_FILE_SIZE_BYTES:
             await reply_with_markdown(message, _max_size_message(stored_language))
+            return
+
+        if is_image_document(document.file_name, document.mime_type):
+            tg_file = await context.bot.get_file(document.file_id)
+            raw = bytes(await tg_file.download_as_bytearray())
+            image_bytes, mime_type = prepare_image_for_ocr(raw, document.mime_type, document.file_name)
+            await _run_image_scan(message, pipeline, image_extractor, stored_language, image_bytes, mime_type)
             return
 
         tg_file = await context.bot.get_file(document.file_id)
@@ -251,8 +260,19 @@ async def handle_private_photo(
     tg_file = await context.bot.get_file(message.photo[-1].file_id)
     image_bytes = bytes(await tg_file.download_as_bytearray())
 
+    await _run_image_scan(message, pipeline, image_extractor, stored_language, image_bytes, "image/jpeg")
+
+
+async def _run_image_scan(
+    message,
+    pipeline: ScanPipeline,
+    image_extractor: HuggingFaceImageExtractor,
+    stored_language: str | None,
+    image_bytes: bytes,
+    mime_type: str,
+) -> None:
     try:
-        text = await image_extractor.extract_text(image_bytes, "image/jpeg")
+        text = await image_extractor.extract_text(image_bytes, mime_type)
     except ImageExtractionError:
         await reply_with_markdown(message, _image_read_failed_message(stored_language))
         return

@@ -138,6 +138,7 @@ def register_handlers(
                 pipeline=pipeline,
                 user_pref_repo=user_pref_repo,
                 group_pref_repo=group_pref_repo,
+                image_extractor=image_extractor,
             ),
         )
     )
