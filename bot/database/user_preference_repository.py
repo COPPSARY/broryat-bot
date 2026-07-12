@@ -1,10 +1,10 @@
 import asyncio
-from datetime import datetime, timezone
 
 from sqlalchemy import Engine
 from sqlmodel import Session
 
 from bot.models.user_preference import UserPreference
+from bot.utils.time import now_phnom_penh
 
 
 class UserPreferenceRepository:
@@ -27,7 +27,21 @@ class UserPreferenceRepository:
                     pref = UserPreference(user_id=user_id, language=language)
                 else:
                     pref.language = language
-                    pref.updated_at = datetime.now(timezone.utc)
+                    pref.updated_at = now_phnom_penh()
+                session.add(pref)
+                session.commit()
+
+        await asyncio.to_thread(_upsert)
+
+    async def set_username(self, user_id: int, username: str | None) -> None:
+        def _upsert() -> None:
+            with Session(self._engine) as session:
+                pref = session.get(UserPreference, user_id)
+                if pref is None:
+                    pref = UserPreference(user_id=user_id, username=username)
+                else:
+                    pref.username = username
+                    pref.updated_at = now_phnom_penh()
                 session.add(pref)
                 session.commit()
 

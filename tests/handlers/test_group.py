@@ -36,7 +36,7 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file
     )
 
 
-def _update(text="check this https://example.com", document=None):
+def _update(text="check this https://example.com", document=None, chat_title="Scam Watch"):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
@@ -45,6 +45,7 @@ def _update(text="check this https://example.com", document=None):
     update.message.chat_id = 999
     update.message.message_id = 555
     update.message.from_user.id = 42
+    update.message.chat.title = chat_title
     placeholder = AsyncMock()
     update.message.reply_text = AsyncMock(return_value=placeholder)
     return update
@@ -66,6 +67,7 @@ def _group_pref_repo(language=None):
 def _pipeline():
     pipeline = AsyncMock()
     pipeline.count_recent_scans = AsyncMock(return_value=0)
+    pipeline.was_recently_scanned = AsyncMock(return_value=False)
     return pipeline
 
 
@@ -77,6 +79,17 @@ async def test_does_nothing_when_group_scan_disabled():
 
     pipeline.run.assert_not_awaited()
     update.message.reply_text.assert_not_awaited()
+
+
+async def test_records_the_group_name_in_group_preferences():
+    update = _update(chat_title="Scam Watch")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+    group_pref_repo = _group_pref_repo()
+
+    await handle_group_message(update, _context(), pipeline, group_pref_repo, group_scan_enabled=True)
+
+    group_pref_repo.set_group_name.assert_awaited_once_with(999, "Scam Watch")
 
 
 async def test_plain_text_without_link_is_skipped_entirely():
@@ -186,6 +199,18 @@ async def test_below_daily_limit_still_scans():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
     pipeline.count_recent_scans = AsyncMock(return_value=1)
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_awaited_once()
+
+
+async def test_cached_repeat_bypasses_daily_limit():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 
     await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)

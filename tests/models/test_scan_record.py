@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import BigInteger
@@ -31,9 +31,9 @@ def test_scan_record_auto_generates_uuid_id():
     assert isinstance(record.id, UUID)
 
 
-def test_scan_record_auto_generates_created_at_in_utc():
+def test_scan_record_auto_generates_created_at_in_phnom_penh_time():
     record = _record()
-    assert record.created_at.tzinfo is not None
+    assert record.created_at.utcoffset() == timedelta(hours=7)
     assert (datetime.now(timezone.utc) - record.created_at).total_seconds() < 5
 
 

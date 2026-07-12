@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import BigInteger
@@ -22,9 +22,9 @@ def test_url_report_auto_generates_uuid_id():
     assert isinstance(report.id, UUID)
 
 
-def test_url_report_auto_generates_created_at_in_utc():
+def test_url_report_auto_generates_created_at_in_phnom_penh_time():
     report = _report()
-    assert report.created_at.tzinfo is not None
+    assert report.created_at.utcoffset() == timedelta(hours=7)
     assert (datetime.now(timezone.utc) - report.created_at).total_seconds() < 5
 
 

@@ -81,6 +81,7 @@ async def handle_group_message(
 
     stored_language = await group_pref_repo.get_language(message.chat_id)
     language = stored_language or "km"
+    await group_pref_repo.set_group_name(message.chat_id, message.chat.title)
 
     if document is None and _is_lone_own_website_link(text, urls):
         await reply_with_markdown(message, _OWN_WEBSITE[language])
@@ -120,7 +121,9 @@ async def handle_group_message(
             language=language,
         )
 
-    if await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT:
+    if not await pipeline.was_recently_scanned(request) and (
+        await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT
+    ):
         if message.chat_id not in _LIMIT_NOTIFIED:
             _LIMIT_NOTIFIED.add(message.chat_id)
             placeholder = await reply_with_markdown(message, _LIMIT_REACHED[language])

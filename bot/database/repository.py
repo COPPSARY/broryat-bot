@@ -1,11 +1,12 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy import Engine, func
 from sqlmodel import Session, select
 
 from bot.models.scan_record import ScanRecord
+from bot.utils.time import now_phnom_penh
 
 
 class ScanRepository:
@@ -36,7 +37,7 @@ class ScanRepository:
         return await self._find_recent(ScanRecord.url, url, within_hours)
 
     async def count_recent_scans(self, chat_type: str, identifier: int, within_hours: int = 24) -> int:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=within_hours)
+        cutoff = now_phnom_penh() - timedelta(hours=within_hours)
         identifier_column = ScanRecord.user_id if chat_type == "private" else ScanRecord.chat_id
 
         def _query() -> int:
@@ -51,7 +52,7 @@ class ScanRepository:
         return await asyncio.to_thread(_query)
 
     async def _find_recent(self, column, value: str, within_hours: int) -> ScanRecord | None:
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=within_hours)
+        cutoff = now_phnom_penh() - timedelta(hours=within_hours)
 
         def _query() -> ScanRecord | None:
             with Session(self._engine) as session:

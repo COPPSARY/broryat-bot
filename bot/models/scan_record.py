@@ -1,15 +1,17 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, BigInteger, Column
 from sqlmodel import Field, SQLModel
+
+from bot.utils.time import now_phnom_penh
 
 
 class ScanRecord(SQLModel, table=True):
     __tablename__ = "scan_records"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=now_phnom_penh)
     chat_id: int = Field(sa_column=Column(BigInteger, nullable=False))
     user_id: int = Field(sa_column=Column(BigInteger, nullable=False))
     chat_type: str

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import BigInteger
 
@@ -11,9 +11,9 @@ def test_group_preference_holds_chat_id_and_language():
     assert pref.language == "km"
 
 
-def test_group_preference_auto_generates_updated_at_in_utc():
+def test_group_preference_auto_generates_updated_at_in_phnom_penh_time():
     pref = GroupPreference(chat_id=1, language="en")
-    assert pref.updated_at.tzinfo is not None
+    assert pref.updated_at.utcoffset() == timedelta(hours=7)
     assert (datetime.now(timezone.utc) - pref.updated_at).total_seconds() < 5
 
 
@@ -26,3 +26,18 @@ def test_chat_id_column_is_primary_key_and_big_integer():
 def test_group_preference_accepts_supergroup_chat_id_beyond_int32_range():
     pref = GroupPreference(chat_id=-1001234567890123, language="en")
     assert pref.chat_id == -1001234567890123
+
+
+def test_group_preference_group_name_defaults_to_none():
+    pref = GroupPreference(chat_id=1, language="en")
+    assert pref.group_name is None
+
+
+def test_group_preference_holds_group_name():
+    pref = GroupPreference(chat_id=1, language="en", group_name="Scam Watch")
+    assert pref.group_name == "Scam Watch"
+
+
+def test_group_preference_language_defaults_to_none():
+    pref = GroupPreference(chat_id=1)
+    assert pref.language is None

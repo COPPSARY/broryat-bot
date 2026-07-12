@@ -94,6 +94,23 @@ class ScanPipeline:
     async def count_recent_scans(self, chat_type: str, identifier: int) -> int:
         return await self._repo.count_recent_scans(chat_type, identifier)
 
+    async def was_recently_scanned(self, request: ScanRequest) -> bool:
+        """True if this URL/file already has a recent cached VirusTotal verdict,
+        meaning a re-scan reuses the record instead of calling the VT API."""
+        for url in request.urls:
+            cached = await self._repo.find_recent_by_url(normalize_url(url))
+            if cached is not None and cached.vt_status is not None:
+                return True
+        if request.file_path:
+            try:
+                sha256 = sha256_file(request.file_path)
+            except OSError:
+                return False
+            cached = await self._repo.find_recent_by_hash(sha256)
+            if cached is not None and cached.vt_status is not None:
+                return True
+        return False
+
     async def _classify_or_none(
         self, text: str, language: str, vt_context: str | None
     ) -> IntentResult | None:

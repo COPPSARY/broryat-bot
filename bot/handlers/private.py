@@ -20,6 +20,7 @@ from bot.handlers.keyboards import resolve_menu_topic, virustotal_keyboard
 from bot.handlers.progress import run_with_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest
+from bot.services.ai.image_extractor import HuggingFaceImageExtractor, ImageExtractionError
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
 from bot.utils.language import detect_language
@@ -107,6 +108,35 @@ def _max_size_message(language: str | None) -> str:
     return f"{_MAX_SIZE_REACHED['en']}\n\n{_MAX_SIZE_REACHED['km']}"
 
 
+_NO_TEXT_IN_IMAGE = {
+    "en": (
+        "🖼️ I couldn't find any readable text in that image. If it's a suspicious "
+        "message, try forwarding the original text to me instead."
+    ),
+    "km": (
+        "🖼️ ខ្ញុំមិនអាចរកឃើញអក្សរនៅក្នុងរូបភាពនោះទេ។ ប្រសិនបើវាជាសារគួរឱ្យសង្ស័យ "
+        "សូមព្យាយាមបញ្ជូនបន្តជាអក្សរដើមមកខ្ញុំវិញ។"
+    ),
+}
+
+_IMAGE_READ_FAILED = {
+    "en": "⚠️ Sorry, I couldn't read that image right now. Please try again in a moment.",
+    "km": "⚠️ សូមអភ័យទោស ខ្ញុំមិនអាចអានរូបភាពនោះបានទេនៅពេលនេះ។ សូមព្យាយាមម្តងទៀត។",
+}
+
+
+def _no_text_in_image_message(language: str | None) -> str:
+    if language:
+        return _NO_TEXT_IN_IMAGE[language]
+    return f"{_NO_TEXT_IN_IMAGE['en']}\n\n{_NO_TEXT_IN_IMAGE['km']}"
+
+
+def _image_read_failed_message(language: str | None) -> str:
+    if language:
+        return _IMAGE_READ_FAILED[language]
+    return f"{_IMAGE_READ_FAILED['en']}\n\n{_IMAGE_READ_FAILED['km']}"
+
+
 _MENU_HANDLERS = {
     "use": use_command,
     "secure": secure_command,
@@ -147,6 +177,7 @@ async def handle_private_message(
             return
 
     stored_language = await user_pref_repo.get_language(message.from_user.id)
+    await user_pref_repo.set_username(message.from_user.id, message.from_user.username)
 
     if document is not None:
         if document.file_size > MAX_FILE_SIZE_BYTES:
@@ -196,11 +227,60 @@ async def handle_private_message(
             language=stored_language or detect_language(text),
         )
 
-    if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
+    if not await pipeline.was_recently_scanned(request) and (
+        await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
+    ):
         await reply_with_markdown(message, _limit_reached_message(request.language))
         return
 
     await run_private_scan(message, pipeline, request.language, request)
+
+
+async def handle_private_photo(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    pipeline: ScanPipeline,
+    image_extractor: HuggingFaceImageExtractor,
+    user_pref_repo: UserPreferenceRepository,
+    group_pref_repo: GroupPreferenceRepository,
+) -> None:
+    message = update.message
+    stored_language = await user_pref_repo.get_language(message.from_user.id)
+    await user_pref_repo.set_username(message.from_user.id, message.from_user.username)
+
+    tg_file = await context.bot.get_file(message.photo[-1].file_id)
+    image_bytes = bytes(await tg_file.download_as_bytearray())
+
+    try:
+        text = await image_extractor.extract_text(image_bytes, "image/jpeg")
+    except ImageExtractionError:
+        await reply_with_markdown(message, _image_read_failed_message(stored_language))
+        return
+
+    if not text.strip():
+        await reply_with_markdown(message, _no_text_in_image_message(stored_language))
+        return
+
+    urls = extract_urls(text)
+    language = stored_language or detect_language(text)
+
+    request = ScanRequest(
+        chat_id=message.chat_id,
+        user_id=message.from_user.id,
+        chat_type="private",
+        input_type="url" if urls else "text",
+        text=text,
+        urls=urls,
+        language=language,
+    )
+
+    if not await pipeline.was_recently_scanned(request) and (
+        await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
+    ):
+        await reply_with_markdown(message, _limit_reached_message(language))
+        return
+
+    await run_private_scan(message, pipeline, language, request)
 
 
 async def run_private_scan(message, pipeline: ScanPipeline, language: str, request: ScanRequest) -> None:

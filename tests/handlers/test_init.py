@@ -5,6 +5,7 @@ from telegram.ext import CommandHandler, MessageHandler
 from bot.handlers import register_handlers, set_bot_commands
 from bot.handlers.group import handle_group_message
 from bot.handlers.media import handle_unsupported_media
+from bot.handlers.private import handle_private_photo
 
 
 async def test_set_bot_commands_registers_all_topic_commands():
@@ -32,6 +33,7 @@ def _register(app):
         scan_repo=MagicMock(),
         admin_chat_id=None,
         breach_client=MagicMock(),
+        image_extractor=MagicMock(),
     )
 
 
@@ -39,7 +41,20 @@ def _message_handlers(app):
     return [call.args[0] for call in app.add_handler.call_args_list if isinstance(call.args[0], MessageHandler)]
 
 
-def test_register_handlers_wires_media_handler_for_both_chat_types():
+def test_register_handlers_routes_private_photos_to_the_ocr_handler():
+    app = MagicMock()
+    _register(app)
+
+    photo_handlers = [
+        h for h in _message_handlers(app) if getattr(h.callback, "func", None) is handle_private_photo
+    ]
+    assert len(photo_handlers) == 1
+    filter_repr = repr(photo_handlers[0].filters)
+    assert "PRIVATE" in filter_repr
+    assert "PHOTO" in filter_repr
+
+
+def test_register_handlers_wires_unsupported_media_for_private_video_and_group_media():
     app = MagicMock()
     _register(app)
 
@@ -48,7 +63,7 @@ def test_register_handlers_wires_media_handler_for_both_chat_types():
     ]
     assert len(media_handlers) == 2
     filter_reprs = {repr(h.filters) for h in media_handlers}
-    assert any("PRIVATE" in r and "PHOTO" in r and "VIDEO" in r for r in filter_reprs)
+    assert any("PRIVATE" in r and "VIDEO" in r for r in filter_reprs)
     assert any("GROUPS" in r and "PHOTO" in r and "VIDEO" in r for r in filter_reprs)
 
 

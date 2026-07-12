@@ -16,7 +16,7 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     )
 
 
-def _update(text=None, document=None, forward_origin=None):
+def _update(text=None, document=None, forward_origin=None, username="johndoe"):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
@@ -24,6 +24,7 @@ def _update(text=None, document=None, forward_origin=None):
     update.message.forward_origin = forward_origin
     update.message.chat_id = 111
     update.message.from_user.id = 222
+    update.message.from_user.username = username
     update.effective_chat.type = "private"
     update.effective_chat.id = 111
     update.effective_user.id = 222
@@ -46,6 +47,7 @@ def _group_pref_repo():
 def _pipeline():
     pipeline = AsyncMock()
     pipeline.count_recent_scans = AsyncMock(return_value=0)
+    pipeline.was_recently_scanned = AsyncMock(return_value=False)
     return pipeline
 
 
@@ -62,6 +64,17 @@ async def test_forwarded_text_message_builds_forwarded_request_and_replies():
     assert request.user_id == 222
     assert request.chat_type == "private"
     update.message.reply_text.return_value.edit_text.assert_awaited()
+
+
+async def test_records_the_sender_username_in_user_preferences():
+    update = _update(text="Hello, is this app legit?", forward_origin=MagicMock(), username="janedoe")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+    user_pref_repo = _user_pref_repo()
+
+    await handle_private_message(update, MagicMock(), pipeline, user_pref_repo, _group_pref_repo())
+
+    user_pref_repo.set_username.assert_awaited_once_with(222, "janedoe")
 
 
 async def test_message_that_is_only_a_url_sets_input_type_url():
@@ -238,6 +251,18 @@ async def test_below_daily_limit_still_scans():
     update = _update(text="https://example.com/promo")
     pipeline = _pipeline()
     pipeline.count_recent_scans = AsyncMock(return_value=1)
+    pipeline.run.return_value = _scan_result()
+
+    await handle_private_message(update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo())
+
+    pipeline.run.assert_awaited_once()
+
+
+async def test_cached_repeat_bypasses_daily_limit():
+    update = _update(text="https://example.com/promo")
+    pipeline = _pipeline()
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 
     await handle_private_message(update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo())

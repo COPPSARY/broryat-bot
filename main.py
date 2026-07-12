@@ -13,6 +13,7 @@ from bot.database.repository import ScanRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
 from bot.handlers import register_handlers, set_bot_commands
 from bot.services.ai.factory import get_ai_provider
+from bot.services.ai.image_extractor import HuggingFaceImageExtractor
 from bot.services.breach_check.client import BreachCheckClient
 from bot.services.pipeline import ScanPipeline
 from bot.services.virustotal.client import VirusTotalClient
@@ -60,6 +61,9 @@ def main() -> None:
 
     pipeline = ScanPipeline(ai_provider, vt_client, repo)
     breach_client = BreachCheckClient()
+    image_extractor = HuggingFaceImageExtractor(
+        api_key=settings.huggingface_api_key, model=settings.ocr_model
+    )
 
     app = Application.builder().token(settings.telegram_bot_token).post_init(set_bot_commands).build()
     register_handlers(
@@ -72,6 +76,7 @@ def main() -> None:
         repo,
         settings.admin_chat_id,
         breach_client,
+        image_extractor,
     )
 
     app.run_polling()

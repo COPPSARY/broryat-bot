@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     huggingface_api_key: str | None = None
     huggingface_base_url: str = "https://router.huggingface.co/v1"
+    ocr_model: str = "google/gemma-4-31B-it"
 
     vt_api_key: str
     vt_rpm_limit: int = 4

@@ -43,3 +43,39 @@ async def test_set_language_upserts_without_duplicating_rows(repo, engine):
     with Session(engine) as session:
         rows = session.exec(select(UserPreference).where(UserPreference.user_id == 123)).all()
         assert len(rows) == 1
+
+
+async def test_set_username_creates_row_when_missing(repo):
+    await repo.set_username(123, "johndoe")
+
+    with_session = repo
+    result = await with_session.get_language(123)
+    assert result is None
+
+
+async def test_set_username_persists_username(repo, engine):
+    await repo.set_username(123, "johndoe")
+
+    with Session(engine) as session:
+        pref = session.get(UserPreference, 123)
+        assert pref.username == "johndoe"
+
+
+async def test_set_username_upserts_without_duplicating_rows(repo, engine):
+    await repo.set_username(123, "johndoe")
+    await repo.set_username(123, "janedoe")
+
+    with Session(engine) as session:
+        rows = session.exec(select(UserPreference).where(UserPreference.user_id == 123)).all()
+        assert len(rows) == 1
+        assert rows[0].username == "janedoe"
+
+
+async def test_set_username_does_not_overwrite_existing_language(repo, engine):
+    await repo.set_language(123, "km")
+    await repo.set_username(123, "johndoe")
+
+    with Session(engine) as session:
+        pref = session.get(UserPreference, 123)
+        assert pref.language == "km"
+        assert pref.username == "johndoe"

@@ -21,8 +21,9 @@ from bot.handlers.email_breach import email_command
 from bot.handlers.group import handle_group_message
 from bot.handlers.language import handle_language_choice
 from bot.handlers.media import handle_unsupported_media
-from bot.handlers.private import handle_private_message
+from bot.handlers.private import handle_private_message, handle_private_photo
 from bot.handlers.report import handle_report_callback
+from bot.services.ai.image_extractor import HuggingFaceImageExtractor
 from bot.services.breach_check.client import BreachCheckClient
 from bot.services.pipeline import ScanPipeline
 
@@ -53,6 +54,7 @@ def register_handlers(
     scan_repo: ScanRepository,
     admin_chat_id: int | None,
     breach_client: BreachCheckClient,
+    image_extractor: HuggingFaceImageExtractor,
 ) -> None:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(
@@ -152,7 +154,19 @@ def register_handlers(
     )
     app.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & (filters.PHOTO | filters.VIDEO),
+            filters.ChatType.PRIVATE & filters.PHOTO,
+            partial(
+                handle_private_photo,
+                pipeline=pipeline,
+                image_extractor=image_extractor,
+                user_pref_repo=user_pref_repo,
+                group_pref_repo=group_pref_repo,
+            ),
+        )
+    )
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.VIDEO,
             partial(
                 handle_unsupported_media,
                 pipeline=pipeline,

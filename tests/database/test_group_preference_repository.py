@@ -43,3 +43,31 @@ async def test_set_language_upserts_without_duplicating_rows(repo, engine):
     with Session(engine) as session:
         rows = session.exec(select(GroupPreference).where(GroupPreference.chat_id == -100123)).all()
         assert len(rows) == 1
+
+
+async def test_set_group_name_persists_group_name(repo, engine):
+    await repo.set_group_name(-100123, "Scam Watch")
+
+    with Session(engine) as session:
+        pref = session.get(GroupPreference, -100123)
+        assert pref.group_name == "Scam Watch"
+
+
+async def test_set_group_name_upserts_without_duplicating_rows(repo, engine):
+    await repo.set_group_name(-100123, "Scam Watch")
+    await repo.set_group_name(-100123, "Scam Watch 2")
+
+    with Session(engine) as session:
+        rows = session.exec(select(GroupPreference).where(GroupPreference.chat_id == -100123)).all()
+        assert len(rows) == 1
+        assert rows[0].group_name == "Scam Watch 2"
+
+
+async def test_set_group_name_does_not_overwrite_existing_language(repo, engine):
+    await repo.set_language(-100123, "km")
+    await repo.set_group_name(-100123, "Scam Watch")
+
+    with Session(engine) as session:
+        pref = session.get(GroupPreference, -100123)
+        assert pref.language == "km"
+        assert pref.group_name == "Scam Watch"
