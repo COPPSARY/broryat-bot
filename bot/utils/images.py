@@ -21,6 +21,13 @@ def is_image_document(file_name: str | None, mime_type: str | None) -> bool:
     return _extension(file_name) in _IMAGE_EXTENSIONS
 
 
+def is_gif(file_name: str | None, mime_type: str | None) -> bool:
+    """True if a Telegram document is a GIF — we never scan these."""
+    if mime_type and mime_type.lower() == "image/gif":
+        return True
+    return _extension(file_name) == ".gif"
+
+
 def _is_heic(file_name: str | None, mime_type: str | None) -> bool:
     if mime_type and mime_type.lower() in ("image/heic", "image/heif"):
         return True

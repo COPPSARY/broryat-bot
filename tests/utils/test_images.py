@@ -4,7 +4,7 @@ import pillow_heif
 import pytest
 from PIL import Image
 
-from bot.utils.images import is_image_document, prepare_image_for_ocr
+from bot.utils.images import is_gif, is_image_document, prepare_image_for_ocr
 
 pillow_heif.register_heif_opener()
 
@@ -28,6 +28,23 @@ pillow_heif.register_heif_opener()
 )
 def test_is_image_document(file_name, mime_type, expected):
     assert is_image_document(file_name, mime_type) is expected
+
+
+@pytest.mark.parametrize(
+    "file_name,mime_type,expected",
+    [
+        ("funny.gif", "image/gif", True),
+        ("funny.GIF", None, True),
+        ("funny.gif", None, True),
+        (None, "image/gif", True),
+        ("photo.png", "image/png", False),
+        ("scan.pdf", "application/pdf", False),
+        ("malware.exe", "application/octet-stream", False),
+        (None, None, False),
+    ],
+)
+def test_is_gif(file_name, mime_type, expected):
+    assert is_gif(file_name, mime_type) is expected
 
 
 def test_prepare_image_for_ocr_passes_through_non_heic_images():

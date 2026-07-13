@@ -14,6 +14,7 @@ from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
+from bot.utils.images import is_image_document
 from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
 
@@ -72,11 +73,20 @@ async def handle_group_message(
         return
 
     message = update.message
+
+    # GIFs arrive as an animation (Telegram converts them to MP4); never scan them.
+    if message.animation is not None:
+        return
+
     document = message.document
     text = message.text or ""
     urls = extract_urls(text) if document is None else []
 
     if document is None and not urls:
+        return
+
+    # OCR is private-only; in groups we don't scan images at all.
+    if document is not None and is_image_document(document.file_name, document.mime_type):
         return
 
     stored_language = await group_pref_repo.get_language(message.chat_id)

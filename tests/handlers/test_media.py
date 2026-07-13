@@ -91,7 +91,7 @@ async def test_private_photo_with_caption_url_is_scanned():
     assert request.chat_type == "private"
 
 
-async def test_group_photo_without_caption_url_gets_gentle_note_in_khmer_by_default():
+async def test_group_photo_without_caption_url_stays_silent():
     update = _update(caption=None, chat_type="group")
     pipeline = _pipeline()
 
@@ -100,8 +100,7 @@ async def test_group_photo_without_caption_url_gets_gentle_note_in_khmer_by_defa
     )
 
     pipeline.run.assert_not_awaited()
-    text = update.message.reply_text.call_args[0][0]
-    assert "រូបភាព" in text
+    update.message.reply_text.assert_not_awaited()
 
 
 async def test_private_photo_with_trusted_caption_url_skips_scan_entirely():

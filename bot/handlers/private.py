@@ -23,7 +23,7 @@ from bot.schemas.scan import ScanRequest
 from bot.services.ai.image_extractor import HuggingFaceImageExtractor, ImageExtractionError
 from bot.services.pipeline import ScanPipeline
 from bot.utils.file_types import MAX_FILE_SIZE_BYTES
-from bot.utils.images import is_image_document, prepare_image_for_ocr
+from bot.utils.images import is_gif, is_image_document, prepare_image_for_ocr
 from bot.utils.language import detect_language
 from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
@@ -170,6 +170,11 @@ async def handle_private_message(
     image_extractor: HuggingFaceImageExtractor,
 ) -> None:
     message = update.message
+
+    # GIFs arrive as an animation (Telegram converts them to MP4); never scan them.
+    if message.animation is not None:
+        return
+
     document = message.document
 
     if document is None:
@@ -182,6 +187,9 @@ async def handle_private_message(
     await user_pref_repo.set_username(message.from_user.id, message.from_user.username)
 
     if document is not None:
+        if is_gif(document.file_name, document.mime_type):
+            return
+
         if document.file_size > MAX_FILE_SIZE_BYTES:
             await reply_with_markdown(message, _max_size_message(stored_language))
             return

@@ -36,11 +36,12 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file
     )
 
 
-def _update(text="check this https://example.com", document=None, chat_title="Scam Watch"):
+def _update(text="check this https://example.com", document=None, chat_title="Scam Watch", animation=None):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
     update.message.document = document
+    update.message.animation = animation
     update.message.forward_origin = None
     update.message.chat_id = 999
     update.message.message_id = 555
@@ -90,6 +91,49 @@ async def test_records_the_group_name_in_group_preferences():
     await handle_group_message(update, _context(), pipeline, group_pref_repo, group_scan_enabled=True)
 
     group_pref_repo.set_group_name.assert_awaited_once_with(999, "Scam Watch")
+
+
+async def test_image_document_is_ignored_silently():
+    document = MagicMock()
+    document.file_name = "screenshot.png"
+    document.mime_type = "image/png"
+    document.file_size = 1000
+    update = _update(text=None, document=document)
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_animation_gif_is_ignored_silently():
+    document = MagicMock()
+    document.file_name = "giphy.mp4"
+    document.mime_type = "video/mp4"
+    document.file_size = 1000
+    update = _update(text=None, document=document, animation=MagicMock())
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_gif_document_is_ignored_silently():
+    document = MagicMock()
+    document.file_name = "funny.gif"
+    document.mime_type = "image/gif"
+    document.file_size = 1000
+    document.file_id = "file-id"
+    update = _update(text=None, document=document)
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
 
 
 async def test_plain_text_without_link_is_skipped_entirely():
@@ -221,6 +265,7 @@ async def test_cached_repeat_bypasses_daily_limit():
 async def test_document_without_link_is_scanned():
     document = MagicMock()
     document.file_name = "invoice.pdf"
+    document.mime_type = "application/pdf"
     document.file_size = 1000
     document.file_id = "file-id"
     update = _update(text=None, document=document)
@@ -238,6 +283,7 @@ async def test_document_without_link_is_scanned():
 async def test_document_caption_is_included_as_text():
     document = MagicMock()
     document.file_name = "invoice.pdf"
+    document.mime_type = "application/pdf"
     document.file_size = 1000
     document.file_id = "file-id"
     update = _update(text=None, document=document)
@@ -254,6 +300,7 @@ async def test_document_caption_is_included_as_text():
 async def test_oversized_document_is_rejected_without_calling_pipeline():
     document = MagicMock()
     document.file_name = "big.exe"
+    document.mime_type = "application/octet-stream"
     document.file_size = 25 * 1024 * 1024
     update = _update(text=None, document=document)
     pipeline = _pipeline()
@@ -297,6 +344,7 @@ async def test_waits_five_seconds_before_deleting_malicious_message(mock_sleep):
 async def test_vt_malicious_file_deletes_message_and_warns():
     document = MagicMock()
     document.file_name = "malware.exe"
+    document.mime_type = "application/octet-stream"
     document.file_size = 1000
     document.file_id = "file-id"
     update = _update(text=None, document=document)

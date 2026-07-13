@@ -77,8 +77,7 @@ async def handle_unsupported_media(
     if not urls:
         if is_private:
             await message.reply_text(_private_fallback_text(stored_language))
-        else:
-            await message.reply_text(_MEDIA_NOT_SUPPORTED[stored_language or "km"])
+        # In groups we stay silent for media we can't read.
         return
 
     if _is_lone_own_website_link(caption, urls):

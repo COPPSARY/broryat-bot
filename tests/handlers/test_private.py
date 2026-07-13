@@ -16,11 +16,12 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     )
 
 
-def _update(text=None, document=None, forward_origin=None, username="johndoe"):
+def _update(text=None, document=None, forward_origin=None, username="johndoe", animation=None):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
     update.message.document = document
+    update.message.animation = animation
     update.message.forward_origin = forward_origin
     update.message.chat_id = 111
     update.message.from_user.id = 222
@@ -155,6 +156,45 @@ async def test_non_image_document_is_still_file_scanned():
     request = pipeline.run.call_args[0][0]
     assert request.input_type == "file"
     assert request.file_name == "report.pdf"
+
+
+async def test_animation_gif_is_ignored_silently():
+    # Telegram delivers GIFs as an animation (converted to MP4) with a document
+    # also attached for backward-compat, so filename/MIME checks miss it.
+    document = MagicMock()
+    document.file_name = "giphy.mp4"
+    document.mime_type = "video/mp4"
+    document.file_size = 1000
+    update = _update(document=document, animation=MagicMock())
+    pipeline = _pipeline()
+    extractor = _extractor()
+
+    await handle_private_message(
+        update, MagicMock(), pipeline, _user_pref_repo(), _group_pref_repo(), extractor
+    )
+
+    extractor.extract_text.assert_not_awaited()
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_gif_document_is_ignored_silently():
+    document = MagicMock()
+    document.file_name = "funny.gif"
+    document.mime_type = "image/gif"
+    document.file_size = 1000
+    document.file_id = "file-id"
+    update = _update(document=document)
+    pipeline = _pipeline()
+    extractor = _extractor()
+
+    await handle_private_message(
+        update, MagicMock(), pipeline, _user_pref_repo(), _group_pref_repo(), extractor
+    )
+
+    extractor.extract_text.assert_not_awaited()
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
 
 
 async def test_oversized_file_is_rejected_without_calling_pipeline():
