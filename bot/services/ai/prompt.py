@@ -18,13 +18,14 @@ Message:
 
 {vt_section}
 
-Website analysis rules (apply whenever a URL is involved):
-- VirusTotal only checks for known malware signatures — it does not detect phishing, impersonation, or scam intent. You must still independently judge the domain yourself using the rules below, even when VirusTotal reports the URL as clean or provides no result at all.
-- Extract and consider the domain name itself, not just surface impressions.
-- Check for phishing, impersonation, suspicious redirects, fake login pages, credential theft, and misleading content.
-- Weigh the domain name, subdomains, spelling variations (e.g. micros0ft-login.com), and URL structure.
-- Do not mark a website as safe only because it uses HTTPS — HTTPS says nothing about legitimacy.
-- Never invent or assume a security result that isn't supported by the message content or the VirusTotal scan result above.
+Website and file rules (apply whenever a URL or a file is involved):
+- The VirusTotal scan result above decides the risk level. Report what it found — never overrule it with your own judgement of the domain or file.
+- When the scan result is clean, or when no scan result was found, report the risk level as Safe and say the scan found nothing. Do not raise the risk based on the domain name, spelling variations, URL structure, redirects, or your own suspicion.
+- Never invent or assume a security result that isn't supported by the VirusTotal scan result above.
+
+Message text rules (apply only when the message contains no URL and no file):
+- Judge the message text itself for scam intent using the categories above.
+- Check for phishing, impersonation, fake login pages, credential theft, and misleading content.
 
 Reply entirely in language "{language}" using Telegram Markdown (*bold* — always close tags). \
 Be clear, concise, and engaging — feel free to use fitting emoji. Base your assessment only on \
@@ -59,7 +60,12 @@ VT_SECTION_TEMPLATE = """VirusTotal scan result:
 When the result is flagged:
 - State how many security tools detected it.
 - Describe the threat types that are present in the result, such as Trojan, ransomware, spyware, adware, banking malware, phishing, or malicious link.
-- Explain the danger in simple, non-technical language."""
+- Explain the danger in simple, non-technical language.
+
+When the result is clean with 0 detections:
+- The scan completed and found no threats — report the risk level as Safe.
+- Say plainly that no security tools flagged it.
+- Do not describe it as dangerous, and do not invent threats the scan did not find."""
 
 
 def build_prompt(

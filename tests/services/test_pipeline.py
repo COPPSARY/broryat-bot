@@ -179,7 +179,8 @@ async def test_vt_context_includes_detection_names_and_record_persists_them():
     assert persisted.vt_detection_names == ["Trojan.GenericKD", "Phishing.Generic"]
 
 
-async def test_ai_conclusion_is_final_even_when_vt_flags_malicious():
+async def test_vt_malicious_forces_high_even_when_ai_says_safe():
+    """VirusTotal decides for links and files; the AI does not get to overrule it."""
     ai_provider = AsyncMock()
     ai_provider.classify.return_value = _intent_result(
         risk_level=RiskLevel.SAFE, message="This looks safe.",
@@ -197,11 +198,187 @@ async def test_ai_conclusion_is_final_even_when_vt_flags_malicious():
 
     result = await pipeline.run(request)
 
-    # AI already saw the VT verdict in its prompt (asserted below) and is trusted as final.
-    assert result.risk_level == RiskLevel.SAFE
+    assert result.risk_level == RiskLevel.HIGH
     vt_client.scan_url.assert_not_awaited()
     ai_call_kwargs = ai_provider.classify.call_args.kwargs
     assert "malicious" in ai_call_kwargs["vt_context"]
+
+
+async def test_vt_suspicious_forces_medium():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.SAFE, message="This looks safe.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com", status="suspicious", malicious_count=0, total_engines=70,
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="url",
+        text="check this out", urls=["https://example.com"], language="en",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.MEDIUM
+
+
+async def test_vt_clean_url_forces_safe_even_when_ai_says_high():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This looks dangerous.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com", status="clean", malicious_count=0, total_engines=70,
+    )
+    pipeline, ai_provider, vt_client, repo = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="url",
+        text="check this out", urls=["https://example.com"], language="en",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.SAFE
+    persisted: ScanRecord = repo.insert_scan.call_args[0][0]
+    assert persisted.final_risk_level == "SAFE"
+
+
+async def test_vt_clean_file_forces_safe_even_when_ai_says_high():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This looks dangerous.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_file_report.return_value = VTFileVerdict(
+        sha256="a" * 64, status="clean", malicious_count=0, total_engines=70,
+    )
+    pipeline, ai_provider, vt_client, repo = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "report.pdf"
+        path.write_bytes(b"harmless")
+        request = ScanRequest(
+            chat_id=1, user_id=2, chat_type="private", input_type="file",
+            file_path=str(path), file_name="report.pdf", language="en",
+        )
+        result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.SAFE
+
+
+async def test_vt_unknown_status_does_not_let_the_ai_judge_a_url():
+    """VirusTotal found no result — the AI does not get to raise the risk on a URL."""
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This looks dangerous.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com", status="unknown", malicious_count=0, total_engines=0,
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="url",
+        text="check this out", urls=["https://example.com"], language="en",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.SAFE
+
+
+async def test_vt_lookup_failure_does_not_let_the_ai_judge_a_url():
+    """VirusTotal errored out entirely, so there is no verdict at all — still no AI override."""
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This looks dangerous.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_url_report.side_effect = RuntimeError("VT is down")
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="url",
+        text="check this out", urls=["https://example.com"], language="en",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.SAFE
+
+
+async def test_vt_unknown_status_does_not_let_the_ai_judge_a_file():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This looks dangerous.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_file_report.return_value = VTFileVerdict(
+        sha256="a" * 64, status="unknown", malicious_count=0, total_engines=0,
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "report.pdf"
+        path.write_bytes(b"harmless")
+        request = ScanRequest(
+            chat_id=1, user_id=2, chat_type="private", input_type="file",
+            file_path=str(path), file_name="report.pdf", language="en",
+        )
+        result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.SAFE
+
+
+async def test_text_only_request_is_not_forced_safe():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This impersonates a bank.",
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider)
+
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="text",
+        text="send me your OTP code", language="en",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.HIGH
+
+
+async def test_clean_file_does_not_force_safe_when_a_url_is_malicious():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="Dangerous link.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_file_report.return_value = VTFileVerdict(
+        sha256="a" * 64, status="clean", malicious_count=0, total_engines=70,
+    )
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com/phish", status="malicious", malicious_count=9, total_engines=70,
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "report.pdf"
+        path.write_bytes(b"harmless")
+        request = ScanRequest(
+            chat_id=1, user_id=2, chat_type="private", input_type="file",
+            file_path=str(path), file_name="report.pdf",
+            text="see https://example.com/phish", urls=["https://example.com/phish"],
+            language="en",
+        )
+        result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.HIGH
 
 
 async def test_ai_still_runs_for_file_only_request_with_no_caption():

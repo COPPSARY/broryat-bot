@@ -44,6 +44,17 @@ def test_prompt_asks_ai_to_classify_malware_type_when_vt_context_given():
         assert keyword in prompt
 
 
+def test_prompt_instructs_safe_when_scan_result_shows_no_detections():
+    prompt = build_prompt("some text", "en", vt_context="URL scan: clean (0/70 engines detected threats)")
+    assert "0 detections" in prompt
+    assert "report the risk level as Safe" in prompt
+
+
+def test_prompt_does_not_tell_ai_to_override_a_clean_scan_result():
+    prompt = build_prompt("some text", "en", vt_context="URL scan: clean (0/70 engines detected threats)")
+    assert "even when VirusTotal reports the URL as clean" not in prompt
+
+
 def test_prompt_asks_to_mention_tool_count():
     prompt = build_prompt("some text", "en", vt_context="malicious (30/70 engines detected threats)")
     assert "tools" in prompt.lower()
@@ -70,16 +81,22 @@ def test_disclaimer_has_english_and_khmer_versions():
     assert DISCLAIMER["en"] != DISCLAIMER["km"]
 
 
-def test_prompt_includes_website_analysis_rules():
+def test_prompt_makes_the_scan_result_decide_for_urls_and_files():
     prompt = build_prompt("some text", "en")
-    assert "phishing" in prompt.lower()
-    assert "https" in prompt.lower()
-    assert "subdomain" in prompt.lower()
+    assert "decides the risk level" in prompt.lower()
+    assert "never overrule it" in prompt.lower()
 
 
-def test_prompt_instructs_not_to_trust_https_alone():
+def test_prompt_forbids_raising_risk_from_the_ais_own_suspicion_of_a_domain():
+    """The AI no longer judges domains itself — VirusTotal decides for links and files."""
     prompt = build_prompt("some text", "en")
-    assert "only because it uses https" in prompt.lower()
+    assert "do not raise the risk based on the domain name" in prompt.lower()
+
+
+def test_prompt_still_judges_message_text_when_no_url_or_file_is_involved():
+    prompt = build_prompt("some text", "en")
+    assert "no url and no file" in prompt.lower()
+    assert "scam intent" in prompt.lower()
 
 
 def test_prompt_instructs_never_invent_results():
@@ -87,14 +104,18 @@ def test_prompt_instructs_never_invent_results():
     assert "never invent" in prompt.lower()
 
 
-def test_prompt_instructs_independent_domain_analysis_regardless_of_vt_result():
+def test_prompt_defers_to_a_clean_vt_result_rather_than_overriding_it():
+    """Supersedes the earlier rule that pushed independent domain analysis even on a
+    clean VT result: a completed 0-detection scan is now reported as Safe."""
     prompt = build_prompt(
         "check https://example.com", "en", vt_context="clean (0/70 engines detected threats)"
     )
-    assert "does not detect phishing" in prompt.lower()
-    assert "you must still" in prompt.lower() or "independently" in prompt.lower()
+    assert "never overrule it" in prompt.lower()
+    assert "report the risk level as Safe" in prompt
 
 
-def test_prompt_pushes_independent_domain_analysis_even_without_vt_context():
+def test_prompt_reports_safe_when_no_scan_result_was_found():
+    """A URL VirusTotal has no result for is not the AI's to flag."""
     prompt = build_prompt("check https://example.com", "en")
-    assert "phishing" in prompt.lower()
+    assert "no scan result was found" in prompt.lower()
+    assert "report the risk level as Safe" in prompt

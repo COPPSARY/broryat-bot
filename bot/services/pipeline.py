@@ -38,6 +38,27 @@ def _verdict_summary(verdict: VTFileVerdict | VTUrlVerdict) -> str:
     return summary
 
 
+_VT_RISK_LEVEL = {
+    "malicious": RiskLevel.HIGH,
+    "suspicious": RiskLevel.MEDIUM,
+    "clean": RiskLevel.SAFE,
+}
+
+
+def _vt_risk_level(vt_file: VTFileVerdict | None, vt_url: VTUrlVerdict | None) -> RiskLevel | None:
+    """The risk level VirusTotal's own verdicts imply, or None when it has no result.
+
+    VirusTotal decides for files and URLs — the AI writes the explanation but does not
+    overrule the scan. 'unknown'/'pending' carry malicious_count == 0 yet mean "no result
+    yet" rather than "clean", so they fall through to the AI's judgement instead.
+    """
+    verdicts = [v for v in (vt_file, vt_url) if v is not None and v.status in _VT_RISK_LEVEL]
+    if not verdicts:
+        return None
+    worst = max(verdicts, key=lambda v: _STATUS_SEVERITY[v.status])
+    return _VT_RISK_LEVEL[worst.status]
+
+
 def _build_vt_context(vt_file: VTFileVerdict | None, vt_url: VTUrlVerdict | None) -> str | None:
     parts = []
     if vt_file is not None:
@@ -75,7 +96,7 @@ class ScanPipeline:
         text_for_ai = request.text or _NO_TEXT_PLACEHOLDER
         ai_result = await self._classify_or_none(text_for_ai, request.language, vt_context)
 
-        risk_level = ai_result.risk_level if ai_result is not None else RiskLevel.SAFE
+        risk_level = self._resolve_risk_level(request, ai_result, vt_file, vt_url)
         analysis_failed = ai_result is None
 
         record = await self._repo.insert_scan(
@@ -90,6 +111,29 @@ class ScanPipeline:
             analysis_failed=analysis_failed,
             scan_record_id=record.id,
         )
+
+    def _resolve_risk_level(
+        self,
+        request: ScanRequest,
+        ai_result: IntentResult | None,
+        vt_file: VTFileVerdict | None,
+        vt_url: VTUrlVerdict | None,
+    ) -> RiskLevel:
+        """VirusTotal alone decides the risk for a scanned link or file.
+
+        When VirusTotal reports nothing usable — no result found, still pending, or the
+        lookup failed — the scan stays SAFE rather than falling back to the AI, which
+        must not raise the risk on a link or file it cannot corroborate. The AI only
+        judges plain text, where there is nothing for VirusTotal to scan.
+        """
+        vt_level = _vt_risk_level(vt_file, vt_url)
+        if vt_level is not None:
+            return vt_level
+        if request.file_path or request.urls:
+            return RiskLevel.SAFE
+        if ai_result is not None:
+            return ai_result.risk_level
+        return RiskLevel.SAFE
 
     async def count_recent_scans(self, chat_type: str, identifier: int) -> int:
         return await self._repo.count_recent_scans(chat_type, identifier)
