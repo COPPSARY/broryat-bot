@@ -80,6 +80,7 @@ def main() -> None:
         Application.builder()
         .token(settings.telegram_bot_token)
         .rate_limiter(AIORateLimiter())
+        .concurrent_updates(True)
         .post_init(set_bot_commands)
         .build()
     )
