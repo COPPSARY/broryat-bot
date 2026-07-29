@@ -3,7 +3,7 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from telegram.ext import Application
+from telegram.ext import AIORateLimiter, Application, ContextTypes
 
 from bot.config.settings import get_settings
 from bot.database.engine import create_db_and_tables, get_engine
@@ -37,6 +37,12 @@ def _start_health_check_server() -> None:
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
 
+async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logging.getLogger(__name__).error(
+        "Unhandled error while processing update %s", update, exc_info=context.error
+    )
+
+
 def main() -> None:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level)
@@ -52,7 +58,12 @@ def main() -> None:
     )
     vt_client = VirusTotalClient(api_key=settings.vt_api_key, rate_limiter=rate_limiter)
 
-    engine = get_engine(settings.database_url)
+    engine = get_engine(
+        settings.database_url,
+        pool_size=20,
+        max_overflow=20,
+        pool_pre_ping=True,
+    )
     create_db_and_tables(engine)
     repo = ScanRepository(engine)
     user_pref_repo = UserPreferenceRepository(engine)
@@ -65,7 +76,14 @@ def main() -> None:
         api_key=settings.huggingface_api_key, model=settings.ocr_model
     )
 
-    app = Application.builder().token(settings.telegram_bot_token).post_init(set_bot_commands).build()
+    app = (
+        Application.builder()
+        .token(settings.telegram_bot_token)
+        .rate_limiter(AIORateLimiter())
+        .post_init(set_bot_commands)
+        .build()
+    )
+    app.add_error_handler(_error_handler)
     register_handlers(
         app,
         pipeline,
