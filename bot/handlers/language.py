@@ -37,12 +37,13 @@ async def handle_language_choice(
     query = update.callback_query
     language = query.data.split(":", 1)[1]
 
+    await query.answer()
+
     if update.effective_chat.type == "private":
         await user_pref_repo.set_language(update.effective_user.id, language)
     else:
         await group_pref_repo.set_language(update.effective_chat.id, language)
 
-    await query.answer()
     await query.edit_message_reply_markup(reply_markup=None)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
