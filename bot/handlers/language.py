@@ -1,5 +1,6 @@
 from telegram import Update
 from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from bot.database.group_preference_repository import GroupPreferenceRepository
@@ -44,7 +45,11 @@ async def handle_language_choice(
     else:
         await group_pref_repo.set_language(update.effective_chat.id, language)
 
-    await query.edit_message_reply_markup(reply_markup=None)
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except BadRequest as exc:
+        if "message is not modified" not in str(exc).lower():
+            raise
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=_CONFIRMATION[language],
