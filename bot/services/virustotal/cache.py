@@ -30,7 +30,7 @@ async def get_cached_or_fetch_file(
     within_hours: int = _DEFAULT_WITHIN_HOURS,
 ) -> VTFileVerdict | None:
     cached = await repo.find_recent_by_hash(sha256, within_hours)
-    if cached is not None and cached.vt_status is not None:
+    if cached is not None and cached.vt_status is not None and cached.vt_status != "pending":
         return VTFileVerdict(
             sha256=sha256,
             status=cached.vt_status,
@@ -49,7 +49,7 @@ async def get_cached_or_fetch_url(
     within_hours: int = _DEFAULT_WITHIN_HOURS,
 ) -> VTUrlVerdict | None:
     cached = await repo.find_recent_by_url(url, within_hours)
-    if cached is not None and cached.vt_status is not None:
+    if cached is not None and cached.vt_status is not None and cached.vt_status != "pending":
         return VTUrlVerdict(
             url=url,
             status=cached.vt_status,
