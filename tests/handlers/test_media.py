@@ -155,7 +155,7 @@ async def test_group_photo_with_own_website_caption_url_gets_own_site_message():
 async def test_private_daily_limit_reached_blocks_scan():
     update = _update(caption="check this out https://example.com", chat_type="private")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
 
     await handle_unsupported_media(
         update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo()
@@ -163,13 +163,13 @@ async def test_private_daily_limit_reached_blocks_scan():
 
     pipeline.run.assert_not_awaited()
     text = update.message.reply_text.call_args[0][0]
-    assert "2" in text
+    assert "3" in text
 
 
 async def test_group_daily_limit_reached_blocks_scan():
     update = _update(caption="check this out https://example.com", chat_type="group")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
 
     await handle_unsupported_media(
         update, MagicMock(), pipeline, _user_pref_repo(), _group_pref_repo(language=None)
@@ -177,13 +177,13 @@ async def test_group_daily_limit_reached_blocks_scan():
 
     pipeline.run.assert_not_awaited()
     text = update.message.reply_text.call_args[0][0]
-    assert "២" in text
+    assert "៣" in text
 
 
 async def test_private_cached_repeat_bypasses_daily_limit():
     update = _update(caption="check this out https://example.com", chat_type="private")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
     pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 

@@ -221,20 +221,20 @@ async def test_trusted_domain_link_with_other_text_still_scanned():
 async def test_daily_limit_reached_blocks_scan_with_message():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
 
     await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
 
     pipeline.run.assert_not_awaited()
     update.message.reply_text.assert_awaited_once()
     text = update.message.reply_text.call_args[0][0]
-    assert "២" in text
+    assert "៣" in text
 
 
 async def test_daily_limit_message_shown_briefly_then_deleted(mock_sleep):
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
     placeholder = update.message.reply_text.return_value
 
     await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
@@ -246,7 +246,7 @@ async def test_daily_limit_message_shown_briefly_then_deleted(mock_sleep):
 async def test_daily_limit_message_not_sent_again_for_same_chat():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
 
     await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
     update.message.reply_text.reset_mock()
@@ -260,7 +260,7 @@ async def test_daily_limit_message_not_sent_again_for_same_chat():
 async def test_below_daily_limit_still_scans():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=1)
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
     pipeline.run.return_value = _scan_result()
 
     await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
@@ -271,7 +271,7 @@ async def test_below_daily_limit_still_scans():
 async def test_cached_repeat_bypasses_daily_limit():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
     pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 

@@ -9,6 +9,7 @@ AI-powered Telegram bot that detects scams, phishing, and malware in Khmer and E
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](.python-version)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-orange.svg)](https://docs.astral.sh/uv/)
+[![CI](https://github.com/COPPSARY/broryat-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/COPPSARY/broryat-bot/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 [Features](docs/features.md) • [Architecture](docs/architecture.md) • [Getting started](#getting-started) • [Configuration](docs/configuration.md) • [Deployment](docs/deployment.md) • [Contributing](CONTRIBUTING.md)
@@ -26,16 +27,18 @@ Broryat AI ("ប្រយ័ត្ន", *beware*) scans forwarded messages, uplo
 
 > **Important:** When VirusTotal has a confirmed verdict for a file or URL, it always overrides the AI's judgment.
 
-See [`docs/features.md`](docs/features.md) for the full feature list, [`docs/architecture.md`](docs/architecture.md) for how the pieces fit together, and [`docs/requirements.md`](docs/requirements.md) for the product requirements and long-term roadmap.
+See [`docs/architecture.md`](docs/architecture.md) for how the pieces fit together and [`docs/requirements.md`](docs/requirements.md) for the product requirements and long-term roadmap.
 
-### Telegram Business Secretary
+## Features
 
-Connect Broryat as a Telegram Business chatbot to protect incoming private chats:
+- Private-chat message, URL, file, and screenshot scanning
+- Telegram group protection
+- Telegram Chat Automation protection
+- Khmer and English responses
+- AI scam and social-engineering detection via VirusTotal + AI Verdict
+- Email breach checks
 
-- URLs and supported files are checked by VirusTotal; ordinary conversation is ignored. The unused AI explanation call is skipped for faster, lower-cost Business scans.
-- VirusTotal-confirmed malicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
-- The action notice disappears five seconds after a successful choice.
-- Scan records use anonymous user/chat IDs and never store Business chat text.
+See [`docs/features.md`](docs/features.md) for full behavior and limitations.
 
 ## Getting started
 

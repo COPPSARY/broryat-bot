@@ -31,4 +31,15 @@ docker run -d --name broryat-ai --env-file .env --restart unless-stopped broryat
 
 `render.yaml` defines a free-tier Docker web service. The bot uses Telegram long polling, so a lightweight health-check HTTP server runs alongside it purely to satisfy Render's requirement that a web service bind a port.
 
+## CI/CD
+
+GitHub Actions runs two checks for every pull request and every push to `main`:
+
+- The complete test suite with Python 3.13 and the frozen `uv.lock`.
+- A production Docker image build.
+
+Render is configured with `autoDeployTrigger: checksPass`, so changes merged to
+`main` deploy only after both checks succeed. Link the Render service to this
+GitHub repository and apply `render.yaml`; no deployment secret is required.
+
 > **Note:** Render's free tier spins down idle services. Pair the deployment with an uptime pinger (e.g. [UptimeRobot](https://uptimerobot.com)) if you need the bot to stay responsive at all times.

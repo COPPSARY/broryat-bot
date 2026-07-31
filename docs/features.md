@@ -6,7 +6,14 @@
 - Reads text out of screenshots via OCR before running it through the same detection pipeline.
 - Casual, non-forwarded messages with no link get a gentle nudge to forward the suspicious content instead of being scanned outright.
 - Persistent per-user language preference (Khmer/English), with a bilingual fallback when none is set yet.
-- A reply-keyboard menu mirrors the slash commands (`/help`, `/use`, `/secure`, `/password`, `/addgroup`, `/donate`, `/language`).
+- A reply-keyboard provides quick access to common help, security, donation, group, and language actions; `/email` is available from Telegram's slash-command menu.
+
+## Email breach checks
+
+- `/email you@example.com` checks the address against known breaches through XposedOrNot.
+- Reports breach names, dates, exposed data types, and risky-password warnings, followed by password and 2FA safety advice.
+- Works in private and group chats with Khmer, English, or bilingual responses.
+- Does not persist the submitted email address in Broryat's database.
 
 ## Group chat
 
@@ -14,24 +21,23 @@
 - Risky-but-unconfirmed content gets a brief warning reply; when VirusTotal confirms a file or link is malicious, the bot deletes the message instead and posts a short warning.
 - Defaults to Khmer, switchable per-group via `/language`.
 
-## Telegram Business secretary
+## Chat Automation
 
-- Scans URLs and files received through a connected Telegram Business account; ordinary chat text is ignored.
-- Uses VirusTotal directly for Business file/URL verdicts and skips the unused AI explanation call, reducing latency and AI credit use without changing risk decisions.
-- Skips a message containing only one well-known trusted URL, using the same trusted-domain policy as private and group scanning; trusted links mixed with other text are still inspected.
-- Leaves clean content unchanged and posts no scanning message. For VirusTotal-confirmed malicious content, asks the connected account owner to delete or keep the original message and includes VirusTotal detection details plus a false-positive disclaimer.
-- Verifies the person pressing Delete or Keep against the live Telegram Business connection; the other chat participant cannot act.
-- Removes the completed action notice after five seconds. Failed actions remain visible so the owner can read the error.
-- Uses the business owner's saved bot language, defaulting to Khmer.
-- Stores threat indicators with anonymous user/chat IDs, never stores Business chat text, and removes temporary file downloads after scanning.
+Add Broryat to Telegram Chat Automation to scan files and links received in your private chats:
+
+- Incoming URLs and supported files are checked by VirusTotal; ordinary conversation is ignored.
+- Confirmed malicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
+- The action notice disappears five seconds after a successful choice.
+- Scan records use anonymous user/chat IDs and never store private-chat text.
 
 ## Detection pipeline
 
 - AI intent classification (Telegram impersonation, banking scams, fake recruitment, fake government notices, investment/crypto scams, credential theft, malware delivery, urgency tactics), any provider selectable via `AI_PROVIDER`.
+- Direct file/URL scans stop waiting for an unavailable AI explanation after 10 seconds and return the localized VirusTotal verdict, detection names, and safety advice instead.
 - VirusTotal file-hash and URL lookups with a sliding-window rate limiter tuned to the free tier (4/min, 500/day, 15.5K/month) and a scan-history cache to avoid redundant lookups.
 - Strict URL validation rejects incomplete domains, email addresses, bare IPs, and incidental dotted text (log lines, module paths) so only genuine domains get scanned.
 - A trusted-domain allowlist (major tech companies, banks, Cambodian government sites) skips scanning a lone trusted link entirely, while still catching look-alike and suffix-attack domains.
-- A per-user (private) / per-chat (group) limit of 2 scans per rolling 24 hours protects the shared VirusTotal quota.
+- A per-user (private) / per-chat (group) limit of 3 scans per rolling 24 hours protects the shared VirusTotal quota.
 
 ## Safety by design
 
