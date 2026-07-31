@@ -33,12 +33,13 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file
     )
 
 
-def _update(text="check this https://example.com", document=None, chat_title="Scam Watch", animation=None):
+def _update(text="check this https://example.com", document=None, chat_title="Scam Watch", animation=None, sticker=None):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
     update.message.document = document
     update.message.animation = animation
+    update.message.sticker = sticker
     update.message.forward_origin = None
     update.message.chat_id = 999
     update.message.message_id = 555
@@ -116,6 +117,26 @@ async def test_animation_gif_is_ignored_silently():
 
     pipeline.run.assert_not_awaited()
     update.message.reply_text.assert_not_awaited()
+
+
+async def test_sticker_is_ignored_silently():
+    update = _update(text=None, sticker=MagicMock())
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_none_message_is_ignored_silently():
+    update = _update()
+    update.message = None
+    pipeline = _pipeline()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    pipeline.run.assert_not_awaited()
 
 
 async def test_gif_document_is_ignored_silently():

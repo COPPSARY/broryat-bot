@@ -9,7 +9,7 @@ from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
-from bot.services.ai.providers.base import AIProvider, AIProviderError
+from bot.services.ai.providers.base import AIProvider
 from bot.services.virustotal.cache import get_cached_or_fetch_file, get_cached_or_fetch_url
 from bot.services.virustotal.client import VirusTotalClient
 from bot.services.virustotal.polling import poll_until_complete
@@ -18,9 +18,16 @@ from bot.utils.url_extraction import normalize_url
 
 logger = logging.getLogger(__name__)
 
-_STATUS_SEVERITY = {"malicious": 3, "suspicious": 2, "clean": 1, "pending": 0, "unknown": 0}
+_STATUS_SEVERITY = {
+    "malicious": 3,
+    "suspicious": 2,
+    "clean": 1,
+    "pending": 0,
+    "unknown": 0,
+}
 
 _NO_TEXT_PLACEHOLDER = "(No message text — only a file or URL was submitted for scanning.)"
+_AI_TIMEOUT_SECONDS = 30
 
 
 def _worst_url_verdict(verdicts: list[VTUrlVerdict]) -> VTUrlVerdict | None:
@@ -77,6 +84,11 @@ class ScanPipeline:
         self._repo = repo
 
     async def run(self, request: ScanRequest) -> ScanResult:
+        logger.info(
+            "Scan started: file=%s urls=%d",
+            request.file_path is not None,
+            len(request.urls),
+        )
         file_task = (
             asyncio.create_task(self._resolve_file_or_none(request.file_path))
             if request.file_path
@@ -91,13 +103,28 @@ class ScanPipeline:
         vt_file = file_result[1] if file_result else None
         primary_url = url_results[0][0] if url_results else None
         vt_url = _worst_url_verdict([r[1] for r in url_results])
-
-        vt_context = _build_vt_context(vt_file, vt_url)
-        text_for_ai = request.text or _NO_TEXT_PLACEHOLDER
-        ai_result = await self._classify_or_none(text_for_ai, request.language, vt_context)
+        logger.info(
+            "VirusTotal resolution completed: file_status=%s url_status=%s",
+            vt_file.status if vt_file else "unavailable",
+            vt_url.status if vt_url else "unavailable",
+        )
+        skip_ai = request.chat_type == "business" and bool(
+            request.file_path or request.urls
+        )
+        if skip_ai:
+            logger.info("AI classification skipped for Telegram Business scan")
+            ai_result = None
+        else:
+            vt_context = _build_vt_context(vt_file, vt_url)
+            text_for_ai = request.text or _NO_TEXT_PLACEHOLDER
+            logger.info("AI classification started")
+            ai_result = await self._classify_or_none(
+                text_for_ai, request.language, vt_context
+            )
+            logger.info("AI classification completed: available=%s", ai_result is not None)
 
         risk_level = self._resolve_risk_level(request, ai_result, vt_file, vt_url)
-        analysis_failed = ai_result is None
+        analysis_failed = not skip_ai and ai_result is None
 
         record = await self._repo.insert_scan(
             self._build_record(request, sha256, primary_url, ai_result, vt_file, vt_url, risk_level)
@@ -105,6 +132,7 @@ class ScanPipeline:
 
         return ScanResult(
             risk_level=risk_level,
+            language=request.language,
             ai=ai_result,
             vt_file=vt_file,
             vt_url=vt_url,
@@ -159,8 +187,11 @@ class ScanPipeline:
         self, text: str, language: str, vt_context: str | None
     ) -> IntentResult | None:
         try:
-            return await self._ai.classify(text, language, vt_context=vt_context)
-        except AIProviderError:
+            return await asyncio.wait_for(
+                self._ai.classify(text, language, vt_context=vt_context),
+                timeout=_AI_TIMEOUT_SECONDS,
+            )
+        except Exception:
             logger.warning("AI provider failed to classify message", exc_info=True)
             return None
 

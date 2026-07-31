@@ -13,12 +13,13 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     )
 
 
-def _update(text=None, document=None, forward_origin=None, username="johndoe", animation=None):
+def _update(text=None, document=None, forward_origin=None, username="johndoe", animation=None, sticker=None):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
     update.message.document = document
     update.message.animation = animation
+    update.message.sticker = sticker
     update.message.forward_origin = forward_origin
     update.message.chat_id = 111
     update.message.from_user.id = 222
@@ -173,6 +174,34 @@ async def test_animation_gif_is_ignored_silently():
     extractor.extract_text.assert_not_awaited()
     pipeline.run.assert_not_awaited()
     update.message.reply_text.assert_not_awaited()
+
+
+async def test_sticker_is_ignored_silently():
+    update = _update(text=None, sticker=MagicMock())
+    pipeline = _pipeline()
+    extractor = _extractor()
+
+    await handle_private_message(
+        update, MagicMock(), pipeline, _user_pref_repo(), _group_pref_repo(), extractor
+    )
+
+    extractor.extract_text.assert_not_awaited()
+    pipeline.run.assert_not_awaited()
+    update.message.reply_text.assert_not_awaited()
+
+
+async def test_none_message_is_ignored_silently():
+    update = _update(text="test")
+    update.message = None
+    pipeline = _pipeline()
+    extractor = _extractor()
+
+    await handle_private_message(
+        update, MagicMock(), pipeline, _user_pref_repo(), _group_pref_repo(), extractor
+    )
+
+    extractor.extract_text.assert_not_awaited()
+    pipeline.run.assert_not_awaited()
 
 
 async def test_gif_document_is_ignored_silently():

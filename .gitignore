@@ -15,3 +15,6 @@ wheels/
 # Test artifacts
 .pytest_cache/
 docs/superpowers/*
+
+server
+server.pub

@@ -1,4 +1,6 @@
 import base64
+import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
@@ -8,6 +10,9 @@ from bot.services.virustotal.rate_limiter import VTRateLimiter
 
 _BASE_URL = "https://www.virustotal.com/api/v3"
 _DEFAULT_TIMEOUT = httpx.Timeout(60.0, connect=30.0)
+_ROTATABLE_STATUS_CODES = {401, 402, 403, 429}
+
+logger = logging.getLogger(__name__)
 
 
 def url_id_for(url: str) -> str:
@@ -49,19 +54,58 @@ def _extract_detection_names(engine_results: dict, limit: int = _MAX_DETECTION_N
 class VirusTotalClient:
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None,
         rate_limiter: VTRateLimiter,
         base_url: str = _BASE_URL,
         client: httpx.AsyncClient | None = None,
+        api_keys: Sequence[str] | None = None,
     ):
+        keys = list(dict.fromkeys(key for key in (api_keys or [api_key]) if key))
+        if client is None and not keys:
+            raise ValueError("At least one VirusTotal API key is required")
+
         self._rate_limiter = rate_limiter
-        self._client = client or httpx.AsyncClient(
-            base_url=base_url, headers={"x-apikey": api_key}, timeout=_DEFAULT_TIMEOUT
+        self._clients = (
+            (client,)
+            if client is not None
+            else tuple(
+                httpx.AsyncClient(
+                    base_url=base_url,
+                    headers={"x-apikey": key},
+                    timeout=_DEFAULT_TIMEOUT,
+                )
+                for key in keys
+            )
         )
+        self._client = self._clients[0]
+        self._client_index = 0
 
     async def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
-        await self._rate_limiter.acquire()
-        return await self._client.request(method, url, **kwargs)
+        last_response = None
+        for _ in self._clients:
+            await self._rate_limiter.acquire()
+            for value in (kwargs.get("files") or {}).values():
+                file_obj = value[-1] if isinstance(value, tuple) else value
+                if hasattr(file_obj, "seek"):
+                    file_obj.seek(0)
+
+            index = self._client_index
+            response = await self._clients[index].request(method, url, **kwargs)
+            if (
+                response.status_code not in _ROTATABLE_STATUS_CODES
+                or len(self._clients) == 1
+            ):
+                return response
+
+            last_response = response
+            self._client_index = (index + 1) % len(self._clients)
+            logger.warning(
+                "VirusTotal key %d rejected with HTTP %d; trying next key",
+                index + 1,
+                response.status_code,
+            )
+
+        return last_response
 
     async def get_file_report(self, sha256: str) -> VTFileVerdict | None:
         response = await self._request("GET", f"/files/{sha256}")
