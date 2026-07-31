@@ -3,19 +3,21 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     telegram_bot_token: str
     ai_provider: Literal["gemini", "openai", "anthropic", "huggingface"] = "gemini"
-    llm_model: str = "gemini-2.0-flash"
+    llm_model: str = "google/gemma-4-31B-it"
     gemini_api_key: str | None = None
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
     huggingface_api_key: str | None = None
-    huggingface_base_url: str = "https://router.huggingface.co/v1"
-    ocr_model: str = "google/gemma-4-31B-it"
+
+    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES
 
     vt_api_key: str
     vt_rpm_limit: int = 4

@@ -9,7 +9,7 @@ from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
-from bot.services.ai.base import AIProvider, AIProviderError
+from bot.services.ai.providers.base import AIProvider, AIProviderError
 from bot.services.virustotal.cache import get_cached_or_fetch_file, get_cached_or_fetch_url
 from bot.services.virustotal.client import VirusTotalClient
 from bot.services.virustotal.polling import poll_until_complete

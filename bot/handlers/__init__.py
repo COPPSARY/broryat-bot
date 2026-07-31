@@ -23,7 +23,8 @@ from bot.handlers.language import handle_language_choice
 from bot.handlers.media import handle_unsupported_media
 from bot.handlers.private import handle_private_message, handle_private_photo
 from bot.handlers.report import handle_report_callback
-from bot.services.ai.image_extractor import HuggingFaceImageExtractor
+from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
+from bot.services.ai.image_extractors.base import ImageExtractor
 from bot.services.breach_check.client import BreachCheckClient
 from bot.services.pipeline import ScanPipeline
 
@@ -54,7 +55,8 @@ def register_handlers(
     scan_repo: ScanRepository,
     admin_chat_id: int | None,
     breach_client: BreachCheckClient,
-    image_extractor: HuggingFaceImageExtractor,
+    image_extractor: ImageExtractor,
+    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> None:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(
@@ -139,6 +141,7 @@ def register_handlers(
                 user_pref_repo=user_pref_repo,
                 group_pref_repo=group_pref_repo,
                 image_extractor=image_extractor,
+                max_file_size_bytes=max_file_size_bytes,
             ),
         )
     )
@@ -150,6 +153,7 @@ def register_handlers(
                 pipeline=pipeline,
                 group_pref_repo=group_pref_repo,
                 group_scan_enabled=group_scan_enabled,
+                max_file_size_bytes=max_file_size_bytes,
             ),
         )
     )

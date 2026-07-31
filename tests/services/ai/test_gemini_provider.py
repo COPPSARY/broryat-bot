@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from bot.schemas.enums import RiskLevel
-from bot.services.ai.base import AIProviderError
-from bot.services.ai.gemini_provider import GeminiProvider
+from bot.services.ai.providers.base import AIProviderError
+from bot.services.ai.providers.gemini import GeminiProvider
 from bot.services.ai.prompt import DISCLAIMER
 
 

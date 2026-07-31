@@ -1,13 +1,13 @@
 # Product Requirements Document (PRD)
 
-# Cambodia AI Scam Shield
+# Broryat AI
 
 **Version:** 1.0 (Draft)  
 **Status:** Planning
 
 ## 1. Executive Summary
 
-Cambodia AI Scam Shield is an AI-powered cybersecurity platform beginning as a Telegram bot and expanding into a national community-driven threat intelligence platform.
+Broryat AI is an AI-powered cybersecurity platform beginning as a Telegram bot and expanding into a national community-driven threat intelligence platform.
 
 The Telegram bot protects users by analyzing forwarded messages, uploaded files, pasted URLs, and plain text in Khmer and English. It combines AI-based social engineering detection with VirusTotal API v3 malware intelligence.
 

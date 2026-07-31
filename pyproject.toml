@@ -1,10 +1,12 @@
 [project]
 name = "broryat-ai"
 version = "0.1.0"
-description = "Add your description here"
+description = "Telegram bot that detects scams, phishing, and malware for Cambodian users using AI + VirusTotal"
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.13"
 dependencies = [
+    "anthropic>=0.120.2",
     "google-genai>=2.11.0",
     "httpx>=0.28.1",
     "openai>=2.45.0",
@@ -20,6 +22,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.3.0",
+    "pip>=26.2",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "respx>=0.23.1",

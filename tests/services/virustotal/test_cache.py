@@ -62,6 +62,18 @@ async def test_falls_back_to_vt_when_cached_record_has_no_vt_status():
     vt_client.get_file_report.assert_awaited_once_with(SHA256)
 
 
+async def test_falls_back_to_vt_when_cached_record_status_is_still_pending():
+    repo = AsyncMock()
+    repo.find_recent_by_hash.return_value = _cached_record(vt_status="pending")
+    vt_client = AsyncMock()
+    vt_client.get_file_report.return_value = VTFileVerdict(sha256=SHA256, status="malicious", malicious_count=9, total_engines=70)
+
+    verdict = await get_cached_or_fetch_file(SHA256, repo, vt_client)
+
+    assert verdict.status == "malicious"
+    vt_client.get_file_report.assert_awaited_once_with(SHA256)
+
+
 async def test_returns_none_when_neither_cache_nor_vt_has_data():
     repo = AsyncMock()
     repo.find_recent_by_hash.return_value = None
@@ -109,4 +121,27 @@ async def test_url_cache_miss_calls_vt():
     verdict = await get_cached_or_fetch_url(url, repo, vt_client)
 
     assert verdict.status == "clean"
+    vt_client.get_url_report.assert_awaited_once_with(url)
+
+
+async def test_url_falls_back_to_vt_when_cached_record_status_is_still_pending():
+    url = "https://example.com/phish"
+    record = ScanRecord(
+        chat_id=1,
+        user_id=2,
+        chat_type="private",
+        input_type="url",
+        url=url,
+        language="en",
+        vt_status="pending",
+        final_risk_level="SAFE",
+    )
+    repo = AsyncMock()
+    repo.find_recent_by_url.return_value = record
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(url=url, status="malicious", malicious_count=9, total_engines=70)
+
+    verdict = await get_cached_or_fetch_url(url, repo, vt_client)
+
+    assert verdict.status == "malicious"
     vt_client.get_url_report.assert_awaited_once_with(url)

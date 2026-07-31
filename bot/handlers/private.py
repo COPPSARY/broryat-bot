@@ -4,6 +4,7 @@ from pathlib import Path
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
 from bot.handlers.commands import (
@@ -20,9 +21,8 @@ from bot.handlers.keyboards import resolve_menu_topic, virustotal_keyboard
 from bot.handlers.progress import run_with_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest
-from bot.services.ai.image_extractor import HuggingFaceImageExtractor, ImageExtractionError
+from bot.services.ai.image_extractors.base import ImageExtractionError, ImageExtractor
 from bot.services.pipeline import ScanPipeline
-from bot.utils.file_types import MAX_FILE_SIZE_BYTES
 from bot.utils.images import is_gif, is_image_document, prepare_image_for_ocr
 from bot.utils.language import detect_language
 from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
@@ -167,7 +167,8 @@ async def handle_private_message(
     pipeline: ScanPipeline,
     user_pref_repo: UserPreferenceRepository,
     group_pref_repo: GroupPreferenceRepository,
-    image_extractor: HuggingFaceImageExtractor,
+    image_extractor: ImageExtractor,
+    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> None:
     message = update.message
 
@@ -190,7 +191,7 @@ async def handle_private_message(
         if is_gif(document.file_name, document.mime_type):
             return
 
-        if document.file_size > MAX_FILE_SIZE_BYTES:
+        if document.file_size > max_file_size_bytes:
             await reply_with_markdown(message, _max_size_message(stored_language))
             return
 
@@ -257,7 +258,7 @@ async def handle_private_photo(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     pipeline: ScanPipeline,
-    image_extractor: HuggingFaceImageExtractor,
+    image_extractor: ImageExtractor,
     user_pref_repo: UserPreferenceRepository,
     group_pref_repo: GroupPreferenceRepository,
 ) -> None:
@@ -274,7 +275,7 @@ async def handle_private_photo(
 async def _run_image_scan(
     message,
     pipeline: ScanPipeline,
-    image_extractor: HuggingFaceImageExtractor,
+    image_extractor: ImageExtractor,
     stored_language: str | None,
     image_bytes: bytes,
     mime_type: str,

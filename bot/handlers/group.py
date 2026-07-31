@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
+from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.handlers.formatting import format_response
 from bot.handlers.keyboards import virustotal_keyboard
@@ -13,7 +14,6 @@ from bot.handlers.progress import run_with_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.services.pipeline import ScanPipeline
-from bot.utils.file_types import MAX_FILE_SIZE_BYTES
 from bot.utils.images import is_image_document
 from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
@@ -68,6 +68,7 @@ async def handle_group_message(
     pipeline: ScanPipeline,
     group_pref_repo: GroupPreferenceRepository,
     group_scan_enabled: bool,
+    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> None:
     if not group_scan_enabled:
         return
@@ -101,7 +102,7 @@ async def handle_group_message(
         return
 
     if document is not None:
-        if document.file_size > MAX_FILE_SIZE_BYTES:
+        if document.file_size > max_file_size_bytes:
             await reply_with_markdown(message, _MAX_SIZE_REACHED[language])
             return
 
