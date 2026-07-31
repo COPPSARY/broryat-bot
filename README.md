@@ -28,14 +28,14 @@ Broryat AI ("ប្រយ័ត្ន", *beware*) scans forwarded messages, uplo
 
 See [`docs/features.md`](docs/features.md) for the full feature list, [`docs/architecture.md`](docs/architecture.md) for how the pieces fit together, and [`docs/requirements.md`](docs/requirements.md) for the product requirements and long-term roadmap.
 
-### Telegram Business Secretary
+### Chat Automation
 
-Connect Broryat as a Telegram Business chatbot to protect incoming private chats:
+Add Broryat to Telegram Chat Automation to scan files and links received in your private chats:
 
-- URLs and supported files are checked by VirusTotal; ordinary conversation is ignored. The unused AI explanation call is skipped for faster, lower-cost Business scans.
-- VirusTotal-confirmed malicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
+- Incoming URLs and supported files are checked by VirusTotal; ordinary conversation is ignored.
+- Confirmed malicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
 - The action notice disappears five seconds after a successful choice.
-- Scan records use anonymous user/chat IDs and never store Business chat text.
+- Scan records use anonymous user/chat IDs and never store private-chat text.
 
 ## Getting started
 
