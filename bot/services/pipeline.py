@@ -28,6 +28,7 @@ _STATUS_SEVERITY = {
 
 _NO_TEXT_PLACEHOLDER = "(No message text — only a file or URL was submitted for scanning.)"
 _AI_TIMEOUT_SECONDS = 30
+_SCAN_AI_TIMEOUT_SECONDS = 10
 
 
 def _worst_url_verdict(verdicts: list[VTUrlVerdict]) -> VTUrlVerdict | None:
@@ -119,7 +120,14 @@ class ScanPipeline:
             text_for_ai = request.text or _NO_TEXT_PLACEHOLDER
             logger.info("AI classification started")
             ai_result = await self._classify_or_none(
-                text_for_ai, request.language, vt_context
+                text_for_ai,
+                request.language,
+                vt_context,
+                timeout_seconds=(
+                    _SCAN_AI_TIMEOUT_SECONDS
+                    if request.file_path or request.urls
+                    else _AI_TIMEOUT_SECONDS
+                ),
             )
             logger.info("AI classification completed: available=%s", ai_result is not None)
 
@@ -184,12 +192,16 @@ class ScanPipeline:
         return False
 
     async def _classify_or_none(
-        self, text: str, language: str, vt_context: str | None
+        self,
+        text: str,
+        language: str,
+        vt_context: str | None,
+        timeout_seconds: float,
     ) -> IntentResult | None:
         try:
             return await asyncio.wait_for(
                 self._ai.classify(text, language, vt_context=vt_context),
-                timeout=_AI_TIMEOUT_SECONDS,
+                timeout=timeout_seconds,
             )
         except Exception:
             logger.warning("AI provider failed to classify message", exc_info=True)

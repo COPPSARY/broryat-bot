@@ -168,7 +168,7 @@ async def test_slow_ai_times_out_and_keeps_virustotal_verdict(monkeypatch):
         malicious_count=8,
         total_engines=70,
     )
-    monkeypatch.setattr("bot.services.pipeline._AI_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr("bot.services.pipeline._SCAN_AI_TIMEOUT_SECONDS", 0.01)
     pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
 
     result = await pipeline.run(

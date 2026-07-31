@@ -84,11 +84,11 @@ def _is_lone_own_website_link(text: str, urls: list[str]) -> bool:
     return _is_lone_link(text, urls) and is_own_domain(urls[0])
 
 
-_DAILY_LIMIT = 2
+_DAILY_LIMIT = 3
 
 _LIMIT_REACHED = {
-    "en": "🚦 You've used your 2 free scans for today. Please try again in 24 hours.",
-    "km": "🚦 អ្នកបានប្រើប្រាស់ការស្កេនចំនួន ២ ដងសម្រាប់ថ្ងៃនេះអស់ហើយ។ សូមព្យាយាមម្តងទៀតក្នុងរយៈពេល ២៤ម៉ោង។",
+    "en": "🚦 You've used your 3 free scans for today. Please try again in 24 hours.",
+    "km": "🚦 អ្នកបានប្រើប្រាស់ការស្កេនចំនួន ៣ ដងសម្រាប់ថ្ងៃនេះអស់ហើយ។ សូមព្យាយាមម្តងទៀតក្នុងរយៈពេល ២៤ម៉ោង។",
 }
 
 _MAX_SIZE_REACHED = {

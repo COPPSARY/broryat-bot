@@ -142,7 +142,7 @@ async def test_replies_gracefully_when_extraction_fails_and_does_not_scan():
 async def test_enforces_the_daily_scan_limit():
     update = _update()
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
 
     await handle_private_photo(
         update, _context(), pipeline, _extractor(), _user_pref_repo(), _group_pref_repo()
@@ -155,7 +155,7 @@ async def test_enforces_the_daily_scan_limit():
 async def test_cached_repeat_bypasses_daily_limit():
     update = _update()
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
     pipeline.was_recently_scanned = AsyncMock(return_value=True)
 
     await handle_private_photo(

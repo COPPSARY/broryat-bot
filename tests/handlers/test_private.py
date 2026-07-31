@@ -342,20 +342,20 @@ async def test_non_forwarded_url_text_still_scanned():
 async def test_daily_limit_reached_blocks_scan_with_message():
     update = _update(text="https://example.com/promo")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
 
     await handle_private_message(update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo(), _extractor())
 
     pipeline.run.assert_not_awaited()
     update.message.reply_text.assert_awaited_once()
     text = update.message.reply_text.call_args[0][0]
-    assert "2" in text
+    assert "3" in text
 
 
 async def test_below_daily_limit_still_scans():
     update = _update(text="https://example.com/promo")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=1)
+    pipeline.count_recent_scans = AsyncMock(return_value=2)
     pipeline.run.return_value = _scan_result()
 
     await handle_private_message(update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo(), _extractor())
@@ -366,7 +366,7 @@ async def test_below_daily_limit_still_scans():
 async def test_cached_repeat_bypasses_daily_limit():
     update = _update(text="https://example.com/promo")
     pipeline = _pipeline()
-    pipeline.count_recent_scans = AsyncMock(return_value=2)
+    pipeline.count_recent_scans = AsyncMock(return_value=3)
     pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 

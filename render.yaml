@@ -3,6 +3,7 @@ services:
     name: broryat-ai
     runtime: docker
     plan: free
+    autoDeployTrigger: checksPass
     healthCheckPath: /
     envVars:
       - key: TELEGRAM_BOT_TOKEN
