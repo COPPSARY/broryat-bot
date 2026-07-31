@@ -14,6 +14,17 @@
 - Risky-but-unconfirmed content gets a brief warning reply; when VirusTotal confirms a file or link is malicious, the bot deletes the message instead and posts a short warning.
 - Defaults to Khmer, switchable per-group via `/language`.
 
+## Telegram Business secretary
+
+- Scans URLs and files received through a connected Telegram Business account; ordinary chat text is ignored.
+- Uses VirusTotal directly for Business file/URL verdicts and skips the unused AI explanation call, reducing latency and AI credit use without changing risk decisions.
+- Skips a message containing only one well-known trusted URL, using the same trusted-domain policy as private and group scanning; trusted links mixed with other text are still inspected.
+- Leaves clean content unchanged and posts no scanning message. For VirusTotal-confirmed malicious content, asks the connected account owner to delete or keep the original message and includes VirusTotal detection details plus a false-positive disclaimer.
+- Verifies the person pressing Delete or Keep against the live Telegram Business connection; the other chat participant cannot act.
+- Removes the completed action notice after five seconds. Failed actions remain visible so the owner can read the error.
+- Uses the business owner's saved bot language, defaulting to Khmer.
+- Stores threat indicators with anonymous user/chat IDs, never stores Business chat text, and removes temporary file downloads after scanning.
+
 ## Detection pipeline
 
 - AI intent classification (Telegram impersonation, banking scams, fake recruitment, fake government notices, investment/crypto scams, credential theft, malware delivery, urgency tactics), any provider selectable via `AI_PROVIDER`.

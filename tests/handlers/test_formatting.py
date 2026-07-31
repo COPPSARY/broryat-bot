@@ -45,6 +45,48 @@ def test_format_response_analysis_failed_returns_failure_message():
     assert "failed" in text.lower()
 
 
+def test_analysis_failed_uses_malicious_virustotal_fallback():
+    result = ScanResult(
+        risk_level=RiskLevel.HIGH,
+        language="en",
+        vt_file=VTFileVerdict(
+            sha256="a" * 64,
+            status="malicious",
+            malicious_count=12,
+            total_engines=70,
+            detection_names=["Trojan.Generic", "Win32.Malware"],
+        ),
+        analysis_failed=True,
+    )
+
+    text = format_response(result)
+
+    assert "MALICIOUS" in text
+    assert "12/70" in text
+    assert "Trojan.Generic" in text
+    assert "Do not open" in text
+
+
+def test_analysis_failed_uses_khmer_virustotal_fallback():
+    result = ScanResult(
+        risk_level=RiskLevel.MEDIUM,
+        language="km",
+        vt_url=VTUrlVerdict(
+            url="https://example.com",
+            status="suspicious",
+            malicious_count=2,
+            total_engines=70,
+        ),
+        analysis_failed=True,
+    )
+
+    text = format_response(result)
+
+    assert "គួរឱ្យសង្ស័យ" in text
+    assert "2/70" in text
+    assert "AI" in text
+
+
 def test_format_response_analysis_failed_uses_khmer_when_ai_language_known():
     result = ScanResult(
         risk_level=RiskLevel.SAFE,

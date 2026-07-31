@@ -15,3 +15,18 @@ class RiskLevel(str, Enum):
         if not isinstance(other, RiskLevel):
             return NotImplemented
         return self._severity < other._severity
+
+    def __le__(self, other: "RiskLevel") -> bool:
+        if not isinstance(other, RiskLevel):
+            return NotImplemented
+        return self._severity <= other._severity
+
+    def __gt__(self, other: "RiskLevel") -> bool:
+        if not isinstance(other, RiskLevel):
+            return NotImplemented
+        return self._severity > other._severity
+
+    def __ge__(self, other: "RiskLevel") -> bool:
+        if not isinstance(other, RiskLevel):
+            return NotImplemented
+        return self._severity >= other._severity

@@ -1,6 +1,7 @@
 from bot.config.settings import Settings
 from bot.services.ai.image_extractors.anthropic import AnthropicImageExtractor
 from bot.services.ai.image_extractors.base import ImageExtractor
+from bot.services.ai.image_extractors.broryat import BroryatImageExtractor
 from bot.services.ai.image_extractors.gemini import GeminiImageExtractor
 from bot.services.ai.image_extractors.huggingface import HuggingFaceImageExtractor
 from bot.services.ai.image_extractors.openai import OpenAIImageExtractor
@@ -15,6 +16,14 @@ def get_image_extractor(settings: Settings) -> ImageExtractor:
         case "anthropic":
             return AnthropicImageExtractor(api_key=settings.anthropic_api_key, model=settings.llm_model)
         case "huggingface":
-            return HuggingFaceImageExtractor(api_key=settings.huggingface_api_key, model=settings.llm_model)
+            return HuggingFaceImageExtractor(
+                api_keys=settings.huggingface_api_keys,
+                model=settings.llm_model,
+            )
+        case "broryat":
+            return BroryatImageExtractor(
+                api_key=settings.broryat_api_key,
+                model=settings.llm_model,
+            )
         case _:
             raise ValueError(f"Unsupported AI provider: {settings.ai_provider}")

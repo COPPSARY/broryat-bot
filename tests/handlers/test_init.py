@@ -1,11 +1,12 @@
 from unittest.mock import AsyncMock, MagicMock
 
+from telegram import Chat, Message, Update, User
 from telegram.ext import CommandHandler, MessageHandler
 
 from bot.handlers import register_handlers, set_bot_commands
 from bot.handlers.group import handle_group_message
 from bot.handlers.media import handle_unsupported_media
-from bot.handlers.private import handle_private_photo
+from bot.handlers.private import handle_private_message, handle_private_photo
 
 
 async def test_set_bot_commands_registers_all_topic_commands():
@@ -91,3 +92,32 @@ def test_registers_email_command():
         if isinstance(call.args[0], CommandHandler) and "email" in call.args[0].commands
     ]
     assert len(email_handlers) == 1
+
+
+def test_private_and_group_handlers_do_not_match_business_message_updates():
+    # A business_message has a private chat and text, so without the UpdateType.MESSAGE
+    # guard it would be swallowed by the private/group handlers, which read
+    # update.message.animation and crash with AttributeError when update.message is None.
+    app = MagicMock()
+    _register(app)
+
+    chat = Chat(id=1501880651, type="private", first_name="User")
+    user = User(id=1501880651, is_bot=False, first_name="User")
+    business = Message(
+        message_id=270181,
+        date=None,
+        chat=chat,
+        from_user=user,
+        text="Hello there",
+        business_connection_id="hsWkBM4dYVfKAwAA2rm3VZADwTk",
+    )
+    update = Update(update_id=369165443, business_message=business)
+
+    for handler in _message_handlers(app):
+        if getattr(handler.callback, "func", None) in (
+            handle_private_message,
+            handle_group_message,
+            handle_private_photo,
+            handle_unsupported_media,
+        ):
+            assert not handler.filters.check_update(update), handler

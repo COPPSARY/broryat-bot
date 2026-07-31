@@ -171,9 +171,12 @@ async def handle_private_message(
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> None:
     message = update.message
+    if message is None:
+        return
 
-    # GIFs arrive as an animation (Telegram converts them to MP4); never scan them.
-    if message.animation is not None:
+    # Never scan animated content: GIFs arrive as an animation (Telegram converts
+    # them to MP4), and stickers cover animated emoji.
+    if message.animation is not None or message.sticker is not None:
         return
 
     document = message.document

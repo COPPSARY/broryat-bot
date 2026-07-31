@@ -11,7 +11,7 @@ from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
 class ScanRequest(BaseModel):
     chat_id: int
     user_id: int
-    chat_type: Literal["private", "group"]
+    chat_type: Literal["private", "group", "business"]
     input_type: Literal["text", "url", "file", "forwarded"]
     text: str | None = None
     urls: list[str] = Field(default_factory=list)
@@ -22,6 +22,7 @@ class ScanRequest(BaseModel):
 
 class ScanResult(BaseModel):
     risk_level: RiskLevel
+    language: Literal["km", "en"] = "en"
     ai: IntentResult | None = None
     vt_file: VTFileVerdict | None = None
     vt_url: VTUrlVerdict | None = None

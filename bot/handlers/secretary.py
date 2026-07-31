@@ -1,0 +1,304 @@
+import logging
+import tempfile
+from pathlib import Path
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import TelegramError
+from telegram.ext import ContextTypes, filters
+
+from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
+from bot.database.secretary_preference_repository import SecretaryPreferenceRepository
+from bot.database.user_preference_repository import UserPreferenceRepository
+from bot.schemas.scan import ScanRequest, ScanResult
+from bot.services.pipeline import ScanPipeline
+from bot.utils.images import is_gif, is_image_document
+from bot.utils.trusted_domains import is_trusted_domain
+from bot.utils.url_extraction import extract_urls, is_message_only_urls
+
+logger = logging.getLogger(__name__)
+
+_MALWARE_PROMPT = {
+    "en": (
+        "⚠️ This file or link contains a virus or other dangerous content.\n"
+        "VirusTotal detections: {malicious}/{total}{names}\n\n"
+        "Broryat may make mistakes. Do you want to delete it?"
+    ),
+    "km": (
+        "⚠️ ឯកសារ ឬតំណនេះមានមេរោគ ឬខ្លឹមសារគ្រោះថ្នាក់។\n"
+        "ការរកឃើញរបស់ VirusTotal៖ {malicious}/{total}{names}\n\n"
+        "Broryat អាចធ្វើការវាយតម្លៃខុស។ តើអ្នកចង់លុបវាទេ?"
+    ),
+}
+_BUTTONS = {
+    "en": ("🗑 Delete", "Keep"),
+    "km": ("🗑 លុប", "រក្សាទុក"),
+}
+_ACTION_DONE = {
+    "delete": {
+        "en": "✅ Deleted by the account owner.",
+        "km": "✅ បានលុបដោយម្ចាស់គណនី។",
+    },
+    "keep": {
+        "en": "Kept by the account owner.",
+        "km": "បានរក្សាទុកដោយម្ចាស់គណនី។",
+    },
+}
+_OWNER_ONLY = {
+    "en": "Only the connected account owner can choose.",
+    "km": "មានតែម្ចាស់គណនីដែលបានភ្ជាប់ប៉ុណ្ណោះអាចជ្រើសរើសបាន។",
+}
+_DELETE_FAILED = {
+    "en": "Telegram could not delete this message. It may be older than 48 hours.",
+    "km": "Telegram មិនអាចលុបសារនេះបានទេ។ វាអាចមានអាយុលើសពី 48 ម៉ោង។",
+}
+_DELETE_PERMISSION_REQUIRED = {
+    "en": (
+        "Enable Manage Messages → Delete received messages in Telegram Business "
+        "settings, then try again."
+    ),
+    "km": (
+        "សូមបើក Manage Messages → Delete received messages ក្នុងការកំណត់ "
+        "Telegram Business រួចសាកល្បងម្តងទៀត។"
+    ),
+}
+
+
+class BusinessConnectionFilter(filters.UpdateFilter):
+    def filter(self, update: Update) -> bool:
+        return update.business_connection is not None
+
+
+async def handle_business_connection(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    secretary_pref_repo: SecretaryPreferenceRepository,
+) -> None:
+    """Map an active Telegram Business connection to its owner."""
+    connection = update.business_connection
+    if connection is None or connection.user is None:
+        return
+    logger.info(
+        "Telegram Business connection %s",
+        "enabled" if connection.is_enabled else "disabled",
+    )
+    await secretary_pref_repo.set_business_connection(
+        connection.user.id, connection.id if connection.is_enabled else None
+    )
+
+
+def _is_vt_malicious(result: ScanResult) -> bool:
+    return (result.vt_file is not None and result.vt_file.status == "malicious") or (
+        result.vt_url is not None and result.vt_url.status == "malicious"
+    )
+
+
+async def _get_owner_id(
+    connection_id: str,
+    context: ContextTypes.DEFAULT_TYPE,
+    secretary_pref_repo: SecretaryPreferenceRepository,
+) -> int | None:
+    pref = await secretary_pref_repo.get_by_connection(connection_id)
+    if pref is not None:
+        return pref.user_id
+
+    try:
+        connection = await context.bot.get_business_connection(connection_id)
+    except TelegramError:
+        logger.warning("Failed to recover business connection", exc_info=True)
+        return None
+    if not connection.is_enabled or connection.user is None:
+        return None
+
+    await secretary_pref_repo.set_business_connection(
+        connection.user.id, connection.id
+    )
+    return connection.user.id
+
+
+def _malware_prompt(result: ScanResult, language: str) -> str:
+    verdict = result.vt_file or result.vt_url
+    names = (
+        f"\nDetected as: {', '.join(verdict.detection_names[:3])}"
+        if verdict.detection_names
+        else ""
+    )
+    return _MALWARE_PROMPT[language].format(
+        malicious=verdict.malicious_count,
+        total=verdict.total_engines,
+        names=names,
+    )
+
+
+def _decision_keyboard(message_id: int, language: str) -> InlineKeyboardMarkup:
+    delete_label, keep_label = _BUTTONS[language]
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    delete_label, callback_data=f"secretary:delete:{message_id}"
+                ),
+                InlineKeyboardButton(
+                    keep_label, callback_data=f"secretary:keep:{message_id}"
+                ),
+            ]
+        ]
+    )
+
+
+async def handle_secretary_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    pipeline: ScanPipeline,
+    secretary_pref_repo: SecretaryPreferenceRepository,
+    user_pref_repo: UserPreferenceRepository,
+    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
+) -> None:
+    """Silently scan business-chat files/URLs and flag confirmed malware."""
+    message = (
+        update.business_message
+        if update.business_message is not None
+        else update.edited_business_message
+    )
+    if message is None or message.business_connection_id is None:
+        return
+
+    owner_id = await _get_owner_id(
+        message.business_connection_id, context, secretary_pref_repo
+    )
+    if owner_id is None:
+        return
+
+    if message.from_user is not None and message.from_user.id == owner_id:
+        return
+
+    # Never scan animated content: GIFs arrive as an animation (Telegram converts
+    # them to MP4), and stickers cover animated emoji.
+    if message.animation is not None or message.sticker is not None:
+        return
+
+    document = message.document
+    if document is not None:
+        if is_gif(document.file_name, document.mime_type) or is_image_document(
+            document.file_name, document.mime_type
+        ):
+            return
+
+        if (document.file_size or 0) > max_file_size_bytes:
+            return
+
+        language = await user_pref_repo.get_language(owner_id) or "km"
+        logger.info("Scanning Telegram Business file")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            file_name = Path(document.file_name or "upload").name
+            file_path = str(Path(tmp_dir) / file_name)
+            tg_file = await context.bot.get_file(document.file_id)
+            await tg_file.download_to_drive(file_path)
+            result = await pipeline.run(
+                ScanRequest(
+                    chat_id=0,
+                    user_id=0,
+                    chat_type="business",
+                    input_type="file",
+                    file_path=file_path,
+                    file_name=file_name,
+                    language=language,
+                )
+            )
+    else:
+        text = message.text or ""
+        urls = extract_urls(text)
+        if not urls:
+            return
+        if (
+            len(urls) == 1
+            and is_message_only_urls(text, urls)
+            and is_trusted_domain(urls[0])
+        ):
+            return
+        language = await user_pref_repo.get_language(owner_id) or "km"
+        logger.info("Scanning Telegram Business URL")
+        result = await pipeline.run(
+            ScanRequest(
+                chat_id=0,
+                user_id=0,
+                chat_type="business",
+                input_type="url",
+                urls=urls,
+                language=language,
+            )
+        )
+
+    vt_status = (
+        result.vt_file.status
+        if result.vt_file is not None
+        else result.vt_url.status if result.vt_url is not None else "unavailable"
+    )
+    logger.info("Telegram Business scan completed: VirusTotal status=%s", vt_status)
+
+    if not _is_vt_malicious(result):
+        return
+
+    await context.bot.send_message(
+        chat_id=message.chat_id,
+        business_connection_id=message.business_connection_id,
+        text=_malware_prompt(result, language),
+        reply_markup=_decision_keyboard(message.message_id, language),
+    )
+
+
+async def _delete_action_prompt(context: ContextTypes.DEFAULT_TYPE) -> None:
+    connection_id, message_id = context.job.data
+    try:
+        await context.bot.delete_business_messages(connection_id, [message_id])
+    except TelegramError as exc:
+        logger.warning("Failed to remove Secretary action prompt: %s", exc)
+
+
+async def handle_secretary_action(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_pref_repo: UserPreferenceRepository,
+) -> None:
+    query = update.callback_query
+    connection_id = query.message.business_connection_id
+    try:
+        connection = await context.bot.get_business_connection(connection_id)
+    except TelegramError as exc:
+        logger.warning("Failed to load business connection: %s", exc)
+        await query.answer(_OWNER_ONLY["km"], show_alert=True)
+        return
+
+    owner_id = connection.user.id
+    language = await user_pref_repo.get_language(owner_id) or "km"
+
+    if not connection.is_enabled or query.from_user.id != owner_id:
+        await query.answer(_OWNER_ONLY[language], show_alert=True)
+        return
+
+    _, action, message_id = query.data.split(":")
+    if action == "delete":
+        if (
+            connection.rights is None
+            or not connection.rights.can_delete_all_messages
+        ):
+            await query.answer(
+                _DELETE_PERMISSION_REQUIRED[language], show_alert=True
+            )
+            return
+        try:
+            await context.bot.delete_business_messages(
+                connection_id, [int(message_id)]
+            )
+        except TelegramError as exc:
+            logger.warning("Failed to delete malicious business message: %s", exc)
+            await query.answer(_DELETE_FAILED[language], show_alert=True)
+            return
+
+    status = _ACTION_DONE[action][language]
+    await query.edit_message_text(f"{query.message.text}\n\n{status}")
+    await query.answer(status)
+    context.job_queue.run_once(
+        _delete_action_prompt,
+        when=5,
+        data=(connection_id, query.message.message_id),
+    )

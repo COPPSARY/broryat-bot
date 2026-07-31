@@ -4,6 +4,7 @@ import pytest
 
 from bot.config.settings import Settings
 from bot.services.ai.image_extractors.anthropic import AnthropicImageExtractor
+from bot.services.ai.image_extractors.broryat import BroryatImageExtractor
 from bot.services.ai.image_extractors.factory import get_image_extractor
 from bot.services.ai.image_extractors.gemini import GeminiImageExtractor
 from bot.services.ai.image_extractors.huggingface import HuggingFaceImageExtractor
@@ -19,6 +20,7 @@ def _settings(**overrides) -> Settings:
         openai_api_key="oa",
         anthropic_api_key="an",
         huggingface_api_key="hf",
+        broryat_api_key="br",
     )
     defaults.update(overrides)
     return Settings(_env_file=None, **defaults)
@@ -62,6 +64,27 @@ def test_returns_huggingface_image_extractor():
 def test_huggingface_image_extractor_uses_model_from_settings():
     extractor = get_image_extractor(_settings(ai_provider="huggingface", llm_model="test-model"))
     assert extractor._model == "test-model"
+
+
+def test_huggingface_image_extractor_receives_all_numbered_keys():
+    extractor = get_image_extractor(
+        _settings(
+            ai_provider="huggingface",
+            huggingface_api_key2="hf-2",
+            huggingface_api_key3="hf-3",
+        )
+    )
+
+    assert len(extractor._clients) == 3
+
+
+def test_returns_broryat_image_extractor_with_configured_model():
+    extractor = get_image_extractor(
+        _settings(ai_provider="broryat", llm_model="gemma4")
+    )
+
+    assert isinstance(extractor, BroryatImageExtractor)
+    assert extractor._model == "gemma4"
 
 
 def test_raises_for_unsupported_provider():

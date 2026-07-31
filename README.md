@@ -21,12 +21,21 @@ Telegram is widely used in Cambodia and increasingly abused for phishing, fake j
 
 Broryat AI ("ប្រយ័ត្ន", *beware*) scans forwarded messages, uploaded files, and links a user sends it, and replies in plain Khmer or English with a risk verdict and a recommended action. It combines two independent signals:
 
-- An **AI intent classifier** (provider-agnostic — Gemini, OpenAI, Anthropic, or Hugging Face) reads message text and screenshots for social-engineering patterns.
+- An **AI intent classifier** (provider-agnostic — Gemini, OpenAI, Anthropic, Hugging Face, or Broryat) reads message text and screenshots for social-engineering patterns.
 - **VirusTotal API v3** checks file hashes and URLs against dozens of security engines.
 
 > **Important:** When VirusTotal has a confirmed verdict for a file or URL, it always overrides the AI's judgment.
 
 See [`docs/features.md`](docs/features.md) for the full feature list, [`docs/architecture.md`](docs/architecture.md) for how the pieces fit together, and [`docs/requirements.md`](docs/requirements.md) for the product requirements and long-term roadmap.
+
+### Telegram Business Secretary
+
+Connect Broryat as a Telegram Business chatbot to protect incoming private chats:
+
+- URLs and supported files are checked by VirusTotal; ordinary conversation is ignored. The unused AI explanation call is skipped for faster, lower-cost Business scans.
+- VirusTotal-confirmed malicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
+- The action notice disappears five seconds after a successful choice.
+- Scan records use anonymous user/chat IDs and never store Business chat text.
 
 ## Getting started
 
@@ -63,7 +72,7 @@ Broryat AI is being built in phases. **Phase 1 is complete and is what this repo
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Telegram bot: AI + VirusTotal detection for text, files, and URLs; Khmer & English support; group protection that warns on risky content and deletes confirmed malware/phishing | ✅ Implemented |
+| 1 | Telegram bot: AI + VirusTotal detection for text, files, and URLs; Khmer & English support; group protection and owner-confirmed Telegram Business moderation | ✅ Implemented |
 | 2 | Configurable per-group strictness and compromised-account detection (a trusted member suddenly posting malware/phishing) | Planned |
 | 3 | Threat-intelligence database and analytics dashboard | Planned |
 | 4 | Takedown/reporting workflow with a public API | Planned |

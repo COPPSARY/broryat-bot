@@ -1,3 +1,4 @@
+import asyncio
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -124,6 +125,93 @@ async def test_ai_provider_error_does_not_crash_pipeline():
 
     assert result.ai is None
     assert result.analysis_failed is True
+
+
+async def test_unexpected_ai_sdk_error_does_not_discard_virustotal_result():
+    ai_provider = AsyncMock()
+    ai_provider.classify.side_effect = RuntimeError("402 payment required")
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com",
+        status="malicious",
+        malicious_count=8,
+        total_engines=70,
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+    request = ScanRequest(
+        chat_id=1,
+        user_id=2,
+        chat_type="private",
+        input_type="url",
+        urls=["https://example.com"],
+        language="km",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.analysis_failed is True
+    assert result.language == "km"
+    assert result.risk_level == RiskLevel.HIGH
+    assert result.vt_url.malicious_count == 8
+
+
+async def test_slow_ai_times_out_and_keeps_virustotal_verdict(monkeypatch):
+    async def never_finishes(*args, **kwargs):
+        await asyncio.Event().wait()
+
+    ai_provider = AsyncMock()
+    ai_provider.classify.side_effect = never_finishes
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com",
+        status="malicious",
+        malicious_count=8,
+        total_engines=70,
+    )
+    monkeypatch.setattr("bot.services.pipeline._AI_TIMEOUT_SECONDS", 0.01)
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    result = await pipeline.run(
+        ScanRequest(
+            chat_id=1,
+            user_id=2,
+            chat_type="private",
+            input_type="url",
+            urls=["https://example.com"],
+            language="en",
+        )
+    )
+
+    assert result.analysis_failed is True
+    assert result.risk_level == RiskLevel.HIGH
+    assert result.vt_url.malicious_count == 8
+
+
+async def test_business_url_skips_unused_ai_classification():
+    ai_provider = AsyncMock()
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com",
+        status="malicious",
+        malicious_count=8,
+        total_engines=70,
+    )
+    pipeline, *_ = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    result = await pipeline.run(
+        ScanRequest(
+            chat_id=0,
+            user_id=0,
+            chat_type="business",
+            input_type="url",
+            urls=["https://example.com"],
+            language="en",
+        )
+    )
+
+    ai_provider.classify.assert_not_awaited()
+    assert result.analysis_failed is False
+    assert result.risk_level == RiskLevel.HIGH
 
 
 async def test_file_cache_hit_skips_vt_upload(tmp_path):

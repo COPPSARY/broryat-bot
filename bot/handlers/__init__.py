@@ -6,6 +6,7 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Mess
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.database.report_repository import ReportRepository
 from bot.database.repository import ScanRepository
+from bot.database.secretary_preference_repository import SecretaryPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
 from bot.handlers.commands import (
     addgroup_command,
@@ -23,6 +24,12 @@ from bot.handlers.language import handle_language_choice
 from bot.handlers.media import handle_unsupported_media
 from bot.handlers.private import handle_private_message, handle_private_photo
 from bot.handlers.report import handle_report_callback
+from bot.handlers.secretary import (
+    BusinessConnectionFilter,
+    handle_business_connection,
+    handle_secretary_action,
+    handle_secretary_message,
+)
 from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.services.ai.image_extractors.base import ImageExtractor
 from bot.services.breach_check.client import BreachCheckClient
@@ -57,6 +64,7 @@ def register_handlers(
     breach_client: BreachCheckClient,
     image_extractor: ImageExtractor,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
+    secretary_pref_repo: SecretaryPreferenceRepository | None = None,
 ) -> None:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(
@@ -132,9 +140,44 @@ def register_handlers(
         )
     )
 
+    if secretary_pref_repo is not None:
+        app.add_handler(
+            CallbackQueryHandler(
+                partial(
+                    handle_secretary_action,
+                    user_pref_repo=user_pref_repo,
+                ),
+                pattern=r"^secretary:(delete|keep):\d+$",
+            )
+        )
+        app.add_handler(
+            MessageHandler(
+                BusinessConnectionFilter(),
+                partial(
+                    handle_business_connection,
+                    secretary_pref_repo=secretary_pref_repo,
+                ),
+            )
+        )
+        app.add_handler(
+            MessageHandler(
+                filters.UpdateType.BUSINESS_MESSAGE
+                | filters.UpdateType.EDITED_BUSINESS_MESSAGE,
+                partial(
+                    handle_secretary_message,
+                    pipeline=pipeline,
+                    secretary_pref_repo=secretary_pref_repo,
+                    user_pref_repo=user_pref_repo,
+                    max_file_size_bytes=max_file_size_bytes,
+                ),
+            )
+        )
+
     app.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & (filters.TEXT | filters.Document.ALL),
+            filters.UpdateType.MESSAGE
+            & filters.ChatType.PRIVATE
+            & (filters.TEXT | filters.Document.ALL),
             partial(
                 handle_private_message,
                 pipeline=pipeline,
@@ -147,7 +190,9 @@ def register_handlers(
     )
     app.add_handler(
         MessageHandler(
-            filters.ChatType.GROUPS & (filters.TEXT | filters.Document.ALL),
+            filters.UpdateType.MESSAGE
+            & filters.ChatType.GROUPS
+            & (filters.TEXT | filters.Document.ALL),
             partial(
                 handle_group_message,
                 pipeline=pipeline,
@@ -159,7 +204,7 @@ def register_handlers(
     )
     app.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & filters.PHOTO,
+            filters.UpdateType.MESSAGE & filters.ChatType.PRIVATE & filters.PHOTO,
             partial(
                 handle_private_photo,
                 pipeline=pipeline,
@@ -171,7 +216,7 @@ def register_handlers(
     )
     app.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & filters.VIDEO,
+            filters.UpdateType.MESSAGE & filters.ChatType.PRIVATE & filters.VIDEO,
             partial(
                 handle_unsupported_media,
                 pipeline=pipeline,
@@ -182,7 +227,7 @@ def register_handlers(
     )
     app.add_handler(
         MessageHandler(
-            filters.ChatType.GROUPS & (filters.PHOTO | filters.VIDEO),
+            filters.UpdateType.MESSAGE & filters.ChatType.GROUPS & (filters.PHOTO | filters.VIDEO),
             partial(
                 handle_unsupported_media,
                 pipeline=pipeline,

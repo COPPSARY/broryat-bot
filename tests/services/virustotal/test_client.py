@@ -238,3 +238,43 @@ def test_url_id_for_is_urlsafe_base64_without_padding():
     url_id = url_id_for("https://example.com/path")
     assert "=" not in url_id
     assert "/" not in url_id
+
+
+@respx.mock
+async def test_request_rotates_to_next_key_when_quota_is_exhausted(rate_limiter):
+    url = "https://example.com/phish"
+    route = respx.get(
+        f"https://www.virustotal.com/api/v3/urls/{url_id_for(url)}"
+    ).mock(
+        side_effect=[
+            httpx.Response(429, json={"error": {"code": "QuotaExceededError"}}),
+            httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "attributes": {
+                            "last_analysis_stats": {
+                                "malicious": 0,
+                                "undetected": 70,
+                            }
+                        }
+                    }
+                },
+            ),
+        ]
+    )
+    client = VirusTotalClient(
+        api_key=None,
+        api_keys=["vt-first", "vt-second"],
+        rate_limiter=rate_limiter,
+    )
+
+    verdict = await client.get_url_report(url)
+
+    assert verdict.status == "clean"
+    assert route.call_count == 2
+    assert [call.request.headers["x-apikey"] for call in route.calls] == [
+        "vt-first",
+        "vt-second",
+    ]
+    assert client._client_index == 1

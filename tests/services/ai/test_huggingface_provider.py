@@ -1,6 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
+from openai import APIStatusError
 
 from bot.schemas.enums import RiskLevel
 from bot.services.ai.providers.base import AIProviderError
@@ -14,6 +16,12 @@ def _fake_client(response_text: str):
     choice = MagicMock(message=message)
     client.chat.completions.create = AsyncMock(return_value=MagicMock(choices=[choice]))
     return client
+
+
+def _status_error(status_code: int) -> APIStatusError:
+    request = httpx.Request("POST", "https://router.huggingface.co/v1/chat/completions")
+    response = httpx.Response(status_code, request=request)
+    return APIStatusError("key rejected", response=response, body=None)
 
 
 async def test_classify_parses_plain_text_response():
@@ -94,3 +102,18 @@ async def test_error_includes_the_raw_response_for_debugging():
 
     with pytest.raises(AIProviderError, match="no risk level here at all"):
         await provider.classify("some text", "en")
+
+
+async def test_classify_rotates_to_next_key_when_quota_is_exhausted():
+    exhausted = _fake_client("")
+    exhausted.chat.completions.create.side_effect = _status_error(402)
+    working = _fake_client("Nothing suspicious.\n\nRISK:SAFE")
+    provider = HuggingFaceProvider(api_key="first", client=exhausted)
+    provider._clients = (exhausted, working)
+
+    result = await provider.classify("hello", "en")
+
+    assert result.risk_level == RiskLevel.SAFE
+    exhausted.chat.completions.create.assert_awaited_once()
+    working.chat.completions.create.assert_awaited_once()
+    assert provider._client_index == 1
