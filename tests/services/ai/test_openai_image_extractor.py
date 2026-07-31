@@ -1,0 +1,66 @@
+import base64
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from bot.services.ai.image_extractors.base import ImageExtractionError
+from bot.services.ai.image_extractors.openai import OpenAIImageExtractor
+
+
+def _fake_client(response_text: str | None):
+    client = MagicMock()
+    choice = MagicMock(message=MagicMock(content=response_text))
+    client.chat.completions.create = AsyncMock(return_value=MagicMock(choices=[choice]))
+    return client
+
+
+async def test_extract_text_returns_the_stripped_model_output():
+    client = _fake_client("  Your account is suspended, click http://evil.example  ")
+    extractor = OpenAIImageExtractor(api_key="test-key", client=client)
+
+    text = await extractor.extract_text(b"\x89PNG fake", "image/png")
+
+    assert text == "Your account is suspended, click http://evil.example"
+
+
+async def test_extract_text_sends_the_image_as_a_base64_data_uri():
+    client = _fake_client("some text")
+    extractor = OpenAIImageExtractor(api_key="test-key", client=client)
+    image_bytes = b"\x89PNG fake bytes"
+
+    await extractor.extract_text(image_bytes, "image/png")
+
+    _, kwargs = client.chat.completions.create.call_args
+    content = kwargs["messages"][0]["content"]
+    image_parts = [p for p in content if p["type"] == "image_url"]
+    assert len(image_parts) == 1
+    expected = base64.b64encode(image_bytes).decode("ascii")
+    assert image_parts[0]["image_url"]["url"] == f"data:image/png;base64,{expected}"
+
+
+async def test_extract_text_uses_the_configured_model():
+    client = _fake_client("text")
+    extractor = OpenAIImageExtractor(api_key="test-key", client=client, model="gpt-4o")
+
+    await extractor.extract_text(b"img", "image/jpeg")
+
+    _, kwargs = client.chat.completions.create.call_args
+    assert kwargs["model"] == "gpt-4o"
+
+
+async def test_extract_text_returns_empty_string_when_model_returns_no_content():
+    client = _fake_client(None)
+    extractor = OpenAIImageExtractor(api_key="test-key", client=client)
+
+    text = await extractor.extract_text(b"img", "image/jpeg")
+
+    assert text == ""
+
+
+async def test_extract_text_raises_image_extraction_error_on_client_failure():
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(side_effect=RuntimeError("openai down"))
+    extractor = OpenAIImageExtractor(api_key="test-key", client=client)
+
+    with pytest.raises(ImageExtractionError, match="openai down"):
+        await extractor.extract_text(b"img", "image/jpeg")

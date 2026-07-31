@@ -7,7 +7,7 @@ from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanRequest
 from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
-from bot.services.ai.base import AIProviderError
+from bot.services.ai.providers.base import AIProviderError
 from bot.services.pipeline import ScanPipeline, _build_vt_context
 
 

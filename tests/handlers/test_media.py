@@ -9,10 +9,7 @@ from bot.schemas.scan import ScanResult
 def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     return ScanResult(
         risk_level=risk_level,
-        ai=IntentResult(
-            risk_level=risk_level, confidence=0.5, categories=[], explanation="x",
-            message=message, language="en",
-        ),
+        ai=IntentResult(risk_level=risk_level, message=message, language="en"),
     )
 
 

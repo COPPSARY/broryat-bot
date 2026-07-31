@@ -1,9 +1,13 @@
+from types import SimpleNamespace
+
 import pytest
 
 from bot.config.settings import Settings
-from bot.services.ai.factory import get_ai_provider
-from bot.services.ai.gemini_provider import GeminiProvider
-from bot.services.ai.huggingface_provider import HuggingFaceProvider
+from bot.services.ai.providers.anthropic import AnthropicProvider
+from bot.services.ai.providers.factory import get_ai_provider
+from bot.services.ai.providers.gemini import GeminiProvider
+from bot.services.ai.providers.huggingface import HuggingFaceProvider
+from bot.services.ai.providers.openai import OpenAIProvider
 
 
 def _settings(**overrides) -> Settings:
@@ -12,6 +16,8 @@ def _settings(**overrides) -> Settings:
         vt_api_key="v",
         database_url="postgresql://user:pass@localhost:5432/postgres",
         gemini_api_key="g",
+        openai_api_key="oa",
+        anthropic_api_key="an",
         huggingface_api_key="hf",
     )
     defaults.update(overrides)
@@ -33,18 +39,37 @@ def test_returns_huggingface_provider():
     assert isinstance(provider, HuggingFaceProvider)
 
 
-def test_huggingface_provider_uses_model_and_base_url_from_settings():
+def test_huggingface_provider_uses_model_from_settings():
     provider = get_ai_provider(
         _settings(
             ai_provider="huggingface",
             llm_model="test-model",
-            huggingface_base_url="https://example.com/v1",
         )
     )
     assert provider._model == "test-model"
 
 
+def test_returns_openai_provider():
+    provider = get_ai_provider(_settings(ai_provider="openai"))
+    assert isinstance(provider, OpenAIProvider)
+
+
+def test_openai_provider_uses_model_from_settings():
+    provider = get_ai_provider(_settings(ai_provider="openai", llm_model="gpt-4o"))
+    assert provider._model == "gpt-4o"
+
+
+def test_returns_anthropic_provider():
+    provider = get_ai_provider(_settings(ai_provider="anthropic"))
+    assert isinstance(provider, AnthropicProvider)
+
+
+def test_anthropic_provider_uses_model_from_settings():
+    provider = get_ai_provider(_settings(ai_provider="anthropic", llm_model="claude-3-opus"))
+    assert provider._model == "claude-3-opus"
+
+
 def test_raises_for_unsupported_provider():
-    settings = _settings(ai_provider="openai")
+    settings = SimpleNamespace(ai_provider="carrier-pigeon")
     with pytest.raises(ValueError):
         get_ai_provider(settings)

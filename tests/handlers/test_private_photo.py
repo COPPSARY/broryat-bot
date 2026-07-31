@@ -4,16 +4,13 @@ from bot.handlers.private import handle_private_photo
 from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanResult
-from bot.services.ai.image_extractor import ImageExtractionError
+from bot.services.ai.image_extractors.base import ImageExtractionError
 
 
 def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     return ScanResult(
         risk_level=risk_level,
-        ai=IntentResult(
-            risk_level=risk_level, confidence=0.5, categories=[], explanation="x",
-            message=message, language="en",
-        ),
+        ai=IntentResult(risk_level=risk_level, message=message, language="en"),
     )
 
 

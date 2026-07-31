@@ -34,6 +34,7 @@ def _register(app):
         admin_chat_id=None,
         breach_client=MagicMock(),
         image_extractor=MagicMock(),
+        max_file_size_bytes=20 * 1024 * 1024,
     )
 
 

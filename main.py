@@ -12,8 +12,8 @@ from bot.database.report_repository import ReportRepository
 from bot.database.repository import ScanRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
 from bot.handlers import register_handlers, set_bot_commands
-from bot.services.ai.factory import get_ai_provider
-from bot.services.ai.image_extractor import HuggingFaceImageExtractor
+from bot.services.ai.providers.factory import get_ai_provider
+from bot.services.ai.image_extractors.factory import get_image_extractor
 from bot.services.breach_check.client import BreachCheckClient
 from bot.services.pipeline import ScanPipeline
 from bot.services.virustotal.client import VirusTotalClient
@@ -72,9 +72,7 @@ def main() -> None:
 
     pipeline = ScanPipeline(ai_provider, vt_client, repo)
     breach_client = BreachCheckClient()
-    image_extractor = HuggingFaceImageExtractor(
-        api_key=settings.huggingface_api_key, model=settings.ocr_model
-    )
+    image_extractor = get_image_extractor(settings)
 
     app = (
         Application.builder()
@@ -96,6 +94,7 @@ def main() -> None:
         settings.admin_chat_id,
         breach_client,
         image_extractor,
+        settings.max_file_size_bytes,
     )
 
     app.run_polling()

@@ -27,10 +27,7 @@ def reset_limit_notified():
 def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file=None, vt_url=None):
     return ScanResult(
         risk_level=risk_level,
-        ai=IntentResult(
-            risk_level=risk_level, confidence=0.5, categories=[], explanation="x",
-            message=message, language="en",
-        ),
+        ai=IntentResult(risk_level=risk_level, message=message, language="en"),
         vt_file=vt_file,
         vt_url=vt_url,
     )
