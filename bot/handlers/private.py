@@ -226,9 +226,7 @@ async def handle_private_message(
             language=language,
         )
 
-        if not await pipeline.was_recently_scanned(request) and (
-            await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
-        ):
+        if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
             await placeholder.edit_text(_limit_reached_message(language))
             return
 
@@ -264,9 +262,7 @@ async def handle_private_message(
             language=stored_language or detect_language(text),
         )
 
-    if not await pipeline.was_recently_scanned(request) and (
-        await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
-    ):
+    if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
         await reply_with_markdown(message, _limit_reached_message(request.language))
         return
 
@@ -323,9 +319,7 @@ async def _run_image_scan(
         language=language,
     )
 
-    if not await pipeline.was_recently_scanned(request) and (
-        await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
-    ):
+    if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
         await reply_with_markdown(message, _limit_reached_message(language))
         return
 

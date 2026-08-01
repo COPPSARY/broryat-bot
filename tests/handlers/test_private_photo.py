@@ -55,7 +55,6 @@ def _group_pref_repo():
 def _pipeline():
     pipeline = AsyncMock()
     pipeline.count_recent_scans = AsyncMock(return_value=0)
-    pipeline.was_recently_scanned = AsyncMock(return_value=False)
     pipeline.run.return_value = _scan_result()
     return pipeline
 
@@ -165,17 +164,16 @@ async def test_enforces_the_daily_scan_limit():
     update.message.reply_text.assert_awaited()
 
 
-async def test_cached_repeat_bypasses_daily_limit():
+async def test_daily_limit_reached_blocks_scan_even_for_a_cached_repeat():
     update = _update()
     pipeline = _pipeline()
     pipeline.count_recent_scans = AsyncMock(return_value=3)
-    pipeline.was_recently_scanned = AsyncMock(return_value=True)
 
     await handle_private_photo(
         update, _context(), pipeline, _extractor(), _user_pref_repo(), _group_pref_repo()
     )
 
-    pipeline.run.assert_awaited_once()
+    pipeline.run.assert_not_awaited()
 
 
 async def test_uses_stored_language_preference_for_the_scan():

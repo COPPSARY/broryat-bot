@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DEFAULT_MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024
+DEFAULT_MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
 
 
 class Settings(BaseSettings):

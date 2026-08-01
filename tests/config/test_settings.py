@@ -27,7 +27,7 @@ def test_settings_defaults(monkeypatch):
 
     assert settings.ai_provider == "gemini"
     assert settings.llm_model == "google/gemma-4-31B-it"
-    assert settings.max_file_size_bytes == 20 * 1024 * 1024
+    assert settings.max_file_size_bytes == 50 * 1024 * 1024
     assert settings.vt_rpm_limit == 4
     assert settings.vt_daily_limit == 500
     assert settings.vt_monthly_limit == 15500

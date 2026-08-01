@@ -101,9 +101,7 @@ async def handle_unsupported_media(
             urls=urls,
             language=language,
         )
-        if not await pipeline.was_recently_scanned(request) and (
-            await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
-        ):
+        if await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT:
             await message.reply_text(_private_limit_reached_message(language))
             return
         await run_private_scan(message, pipeline, language, request)
@@ -118,9 +116,7 @@ async def handle_unsupported_media(
             urls=urls,
             language=language,
         )
-        if not await pipeline.was_recently_scanned(request) and (
-            await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT
-        ):
+        if await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT:
             await message.reply_text(_GROUP_LIMIT_REACHED[language])
             return
         await run_group_scan(message, context, pipeline, language, request)

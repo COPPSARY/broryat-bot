@@ -1,3 +1,4 @@
+from bot.schemas.enums import RiskLevel
 from bot.schemas.scan import ScanResult
 from bot.services.ai.prompt import DISCLAIMER
 
@@ -70,6 +71,67 @@ _VT_PENDING = {
     "km": "⏳ ការស្កេនកំពុងដំណើរការនៅឡើយ។ សូមផ្ញើម្ដងទៀតបន្តិចទៀត ដើម្បីទទួលបានលទ្ធផល។",
 }
 
+# Group replies never surface the AI's own freeform message — only a fixed,
+# structured summary keyed off the final merged risk level.
+_RISK_LEVEL_SUMMARY = {
+    "en": {
+        RiskLevel.HIGH: (
+            "🚨 *Risk Level: HIGH* 🚨",
+            "🚫 Do not click, open, or reply to it. Delete it and report the sender.",
+        ),
+        RiskLevel.MEDIUM: (
+            "⚠️ *Risk Level: MEDIUM* ⚠️",
+            "🔍 Be cautious — verify the sender and content before taking any action.",
+        ),
+        RiskLevel.LOW: (
+            "🟡 *Risk Level: LOW* 🟡",
+            "🔍 Low risk detected. Stay cautious and verify before acting.",
+        ),
+        RiskLevel.SAFE: (
+            "✅ *Risk Level: SAFE* ✅",
+            "🙂 No threats were detected. Stay cautious and verify the sender.",
+        ),
+        RiskLevel.UNKNOWN: (
+            "⚠️ *Risk Level: UNKNOWN* ⚠️",
+            "🔁 No conclusive result. Please try again later.",
+        ),
+    },
+    "km": {
+        RiskLevel.HIGH: (
+            "🚨 *កម្រិតគ្រោះថ្នាក់៖ ខ្ពស់* 🚨",
+            "🚫 កុំចុច បើក ឬឆ្លើយតបវា។ សូមលុបវា និងរាយការណ៍អ្នកផ្ញើ។",
+        ),
+        RiskLevel.MEDIUM: (
+            "⚠️ *កម្រិតគ្រោះថ្នាក់៖ មធ្យម* ⚠️",
+            "🔍 សូមប្រុងប្រយ័ត្ន — ផ្ទៀងផ្ទាត់អ្នកផ្ញើ និងខ្លឹមសារ មុននឹងធ្វើសកម្មភាពណាមួយ។",
+        ),
+        RiskLevel.LOW: (
+            "🟡 *កម្រិតគ្រោះថ្នាក់៖ ទាប* 🟡",
+            "🔍 បានរកឃើញហានិភ័យទាប។ សូមប្រុងប្រយ័ត្ន និងផ្ទៀងផ្ទាត់មុននឹងធ្វើសកម្មភាព។",
+        ),
+        RiskLevel.SAFE: (
+            "✅ *កម្រិតគ្រោះថ្នាក់៖ សុវត្ថិភាព* ✅",
+            "🙂 មិនបានរកឃើញការគំរាមកំហែងទេ។ សូមប្រុងប្រយ័ត្ន និងផ្ទៀងផ្ទាត់អ្នកផ្ញើ។",
+        ),
+        RiskLevel.UNKNOWN: (
+            "⚠️ *កម្រិតគ្រោះថ្នាក់៖ មិនច្បាស់លាស់* ⚠️",
+            "🔁 គ្មានលទ្ធផលច្បាស់លាស់ទេ។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។",
+        ),
+    },
+}
+
+
+def _format_verdict_details(verdict, language: str) -> list[str]:
+    if verdict is None:
+        return []
+    details = []
+    if verdict.total_engines:
+        details.append(f"{_DETECTIONS[language]}: {verdict.malicious_count}/{verdict.total_engines}")
+    if verdict.detection_names:
+        details.append(f"{_DETECTED_AS[language]}: {', '.join(verdict.detection_names[:3])}")
+    return details
+
+
 def _is_vt_pending(result: ScanResult) -> bool:
     return (result.vt_file is not None and result.vt_file.status == "pending") or (
         result.vt_url is not None and result.vt_url.status == "pending"
@@ -87,16 +149,7 @@ def format_vt_fallback(result: ScanResult, language: str) -> str:
 
     lines = [title, ""]
 
-    details = []
-    if verdict.total_engines:
-        details.append(
-            f"{_DETECTIONS[language]}: "
-            f"{verdict.malicious_count}/{verdict.total_engines}"
-        )
-    if verdict.detection_names:
-        details.append(
-            f"{_DETECTED_AS[language]}: {', '.join(verdict.detection_names[:3])}"
-        )
+    details = _format_verdict_details(verdict, language)
     if details:
         lines.extend(details)
         lines.append("")
@@ -107,6 +160,34 @@ def format_vt_fallback(result: ScanResult, language: str) -> str:
     lines.append(recommendation)
     lines.append("")
     lines.append(f"{DISCLAIMER[language]}")
+
+    return "\n".join(lines)
+
+
+def format_group_response(result: ScanResult) -> str:
+    language = result.ai.language if result.ai else result.language
+
+    if _is_vt_pending(result):
+        return _VT_PENDING[language]
+
+    if result.analysis_failed:
+        return format_vt_fallback(result, language)
+
+    title, recommendation = _RISK_LEVEL_SUMMARY[language].get(
+        result.risk_level, _RISK_LEVEL_SUMMARY[language][RiskLevel.UNKNOWN]
+    )
+
+    lines = [title, ""]
+
+    details = _format_verdict_details(result.vt_file or result.vt_url, language)
+    if details:
+        lines.extend(details)
+        lines.append("")
+
+    lines.append(f"*{_RECOMMENDATION_LABEL[language]}:*")
+    lines.append(recommendation)
+    lines.append("")
+    lines.append(DISCLAIMER[language])
 
     return "\n".join(lines)
 

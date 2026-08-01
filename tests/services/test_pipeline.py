@@ -92,6 +92,30 @@ async def test_text_only_request_calls_ai_and_persists_result():
     assert persisted.final_risk_level == "HIGH"
 
 
+async def test_private_scan_persists_null_chat_id():
+    pipeline, ai_provider, vt_client, repo = _pipeline()
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="text", text="hello", language="en",
+    )
+
+    await pipeline.run(request)
+
+    persisted: ScanRecord = repo.insert_scan.call_args[0][0]
+    assert persisted.chat_id is None
+
+
+async def test_group_scan_persists_the_real_group_chat_id():
+    pipeline, ai_provider, vt_client, repo = _pipeline()
+    request = ScanRequest(
+        chat_id=-555, user_id=2, chat_type="group", input_type="text", text="hello", language="en",
+    )
+
+    await pipeline.run(request)
+
+    persisted: ScanRecord = repo.insert_scan.call_args[0][0]
+    assert persisted.chat_id == -555
+
+
 async def test_scan_result_carries_the_persisted_scan_record_id():
     inserted_record = ScanRecord(
         chat_id=1, user_id=2, chat_type="private", input_type="text",
@@ -618,79 +642,6 @@ async def test_file_upload_refetches_full_report_after_analysis_completes_for_de
     assert persisted.vt_detection_names == ["Trojan.GenericKD"]
 
 
-def _cached_record():
-    return ScanRecord(
-        chat_id=1, user_id=2, chat_type="private", input_type="url",
-        url="https://example.com", language="en", vt_status="clean",
-        vt_malicious_count=0, vt_total_engines=70, final_risk_level="SAFE",
-    )
-
-
-async def test_was_recently_scanned_true_when_url_has_cached_verdict():
-    repo = AsyncMock()
-    repo.find_recent_by_url.return_value = _cached_record()
-    repo.find_recent_by_hash.return_value = None
-    pipeline, *_ = _pipeline(repo=repo)
-
-    request = ScanRequest(
-        chat_id=1, user_id=2, chat_type="private", input_type="url",
-        text="check", urls=["https://example.com"], language="en",
-    )
-
-    assert await pipeline.was_recently_scanned(request) is True
-
-
-async def test_was_recently_scanned_false_when_no_recent_match():
-    repo = AsyncMock()
-    repo.find_recent_by_url.return_value = None
-    repo.find_recent_by_hash.return_value = None
-    pipeline, *_ = _pipeline(repo=repo)
-
-    request = ScanRequest(
-        chat_id=1, user_id=2, chat_type="private", input_type="url",
-        text="check", urls=["https://example.com"], language="en",
-    )
-
-    assert await pipeline.was_recently_scanned(request) is False
-
-
-async def test_was_recently_scanned_false_when_cached_row_has_no_vt_status():
-    cached = _cached_record()
-    cached.vt_status = None
-    repo = AsyncMock()
-    repo.find_recent_by_url.return_value = cached
-    repo.find_recent_by_hash.return_value = None
-    pipeline, *_ = _pipeline(repo=repo)
-
-    request = ScanRequest(
-        chat_id=1, user_id=2, chat_type="private", input_type="url",
-        text="check", urls=["https://example.com"], language="en",
-    )
-
-    assert await pipeline.was_recently_scanned(request) is False
-
-
-async def test_was_recently_scanned_true_when_file_hash_has_cached_verdict(tmp_path):
-    file_path = tmp_path / "sample.exe"
-    file_path.write_bytes(b"fake binary")
-
-    repo = AsyncMock()
-    repo.find_recent_by_url.return_value = None
-    repo.find_recent_by_hash.return_value = ScanRecord(
-        chat_id=1, user_id=2, chat_type="private", input_type="file",
-        sha256="dummy", language="en", vt_status="malicious", vt_malicious_count=10,
-        vt_total_engines=70, final_risk_level="HIGH",
-    )
-    pipeline, *_ = _pipeline(repo=repo)
-
-    request = ScanRequest(
-        chat_id=1, user_id=2, chat_type="private", input_type="file",
-        file_path=str(file_path), file_name="sample.exe", language="en",
-    )
-
-    assert await pipeline.was_recently_scanned(request) is True
-
-
 async def test_pending_url_scan_is_not_marked_safe_and_is_not_persisted():
     ai_provider = AsyncMock()
     ai_provider.classify.return_value = _intent_result(
@@ -739,15 +690,3 @@ async def test_pending_file_scan_is_not_marked_safe_and_is_not_persisted():
     repo.insert_scan.assert_not_awaited()
 
 
-async def test_was_recently_scanned_false_for_plain_text_request():
-    repo = AsyncMock()
-    repo.find_recent_by_url.return_value = None
-    repo.find_recent_by_hash.return_value = None
-    pipeline, *_ = _pipeline(repo=repo)
-
-    request = ScanRequest(
-        chat_id=1, user_id=2, chat_type="private", input_type="text",
-        text="hello there", language="en",
-    )
-
-    assert await pipeline.was_recently_scanned(request) is False
