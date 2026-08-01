@@ -41,3 +41,13 @@ def test_group_preference_holds_group_name():
 def test_group_preference_language_defaults_to_none():
     pref = GroupPreference(chat_id=1)
     assert pref.language is None
+
+
+def test_group_preference_added_by_user_id_defaults_to_none():
+    pref = GroupPreference(chat_id=1)
+    assert pref.added_by_user_id is None
+
+
+def test_group_preference_holds_added_by_user_id():
+    pref = GroupPreference(chat_id=1, added_by_user_id=999)
+    assert pref.added_by_user_id == 999

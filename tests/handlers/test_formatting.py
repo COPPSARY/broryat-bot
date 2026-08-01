@@ -1,4 +1,4 @@
-from bot.handlers.formatting import format_response
+from bot.handlers.formatting import format_group_response, format_response
 from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanResult
@@ -179,3 +179,88 @@ def test_format_response_does_not_show_retry_message_for_completed_vt_status():
     text = format_response(result)
 
     assert text == ai_message
+
+
+def test_format_group_response_never_shows_the_ai_freeform_message():
+    result = ScanResult(
+        risk_level=RiskLevel.HIGH,
+        ai=IntentResult(
+            risk_level=RiskLevel.HIGH,
+            message="THIS EXACT AI SENTENCE SHOULD NOT APPEAR",
+            language="en",
+        ),
+    )
+
+    text = format_group_response(result)
+
+    assert "THIS EXACT AI SENTENCE SHOULD NOT APPEAR" not in text
+    assert "Risk Level: HIGH" in text
+
+
+def test_format_group_response_includes_vt_detection_details():
+    result = ScanResult(
+        risk_level=RiskLevel.HIGH,
+        ai=IntentResult(risk_level=RiskLevel.HIGH, message="unused", language="en"),
+        vt_url=VTUrlVerdict(
+            url="https://example.com",
+            status="malicious",
+            malicious_count=8,
+            total_engines=70,
+            detection_names=["Phishing.Generic"],
+        ),
+    )
+
+    text = format_group_response(result)
+
+    assert "8/70" in text
+    assert "Phishing.Generic" in text
+
+
+def test_format_group_response_khmer_safe_result():
+    result = ScanResult(
+        risk_level=RiskLevel.SAFE,
+        ai=IntentResult(risk_level=RiskLevel.SAFE, message="unused", language="km"),
+    )
+
+    text = format_group_response(result)
+
+    assert "សុវត្ថិភាព" in text
+
+
+def test_format_group_response_shows_retry_message_when_pending():
+    result = ScanResult(
+        risk_level=RiskLevel.SAFE,
+        ai=IntentResult(risk_level=RiskLevel.SAFE, message="unused", language="en"),
+        vt_file=VTFileVerdict(sha256="a" * 64, status="pending"),
+    )
+
+    text = format_group_response(result)
+
+    assert "still in progress" in text.lower()
+
+
+def test_format_group_response_analysis_failed_uses_vt_fallback():
+    result = ScanResult(
+        risk_level=RiskLevel.HIGH,
+        language="en",
+        vt_file=VTFileVerdict(
+            sha256="a" * 64, status="malicious", malicious_count=12, total_engines=70
+        ),
+        analysis_failed=True,
+    )
+
+    text = format_group_response(result)
+
+    assert "MALICIOUS" in text
+    assert DISCLAIMER["en"] in text
+
+
+def test_format_group_response_includes_disclaimer():
+    result = ScanResult(
+        risk_level=RiskLevel.SAFE,
+        ai=IntentResult(risk_level=RiskLevel.SAFE, message="unused", language="en"),
+    )
+
+    text = format_group_response(result)
+
+    assert DISCLAIMER["en"] in text

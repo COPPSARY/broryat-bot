@@ -46,3 +46,17 @@ class GroupPreferenceRepository:
                 session.commit()
 
         await asyncio.to_thread(_upsert)
+
+    async def set_added_by(self, chat_id: int, added_by_user_id: int) -> None:
+        def _upsert() -> None:
+            with Session(self._engine) as session:
+                pref = session.get(GroupPreference, chat_id)
+                if pref is None:
+                    pref = GroupPreference(chat_id=chat_id, added_by_user_id=added_by_user_id)
+                else:
+                    pref.added_by_user_id = added_by_user_id
+                    pref.updated_at = now_phnom_penh()
+                session.add(pref)
+                session.commit()
+
+        await asyncio.to_thread(_upsert)

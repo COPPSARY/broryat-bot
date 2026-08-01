@@ -115,11 +115,11 @@ class ScanPipeline:
         skip_ai = is_pending or (
             request.chat_type == "business" and bool(request.file_path or request.urls)
         )
-        if is_pending:
-            logger.info("VirusTotal scan still pending; skipping AI classification")
-            ai_result = None
-        elif skip_ai:
-            logger.info("AI classification skipped for Telegram Business scan")
+        if skip_ai:
+            if is_pending:
+                logger.info("VirusTotal scan still pending; skipping AI classification")
+            else:
+                logger.info("AI classification skipped for Telegram Business scan")
             ai_result = None
         else:
             vt_context = _build_vt_context(vt_file, vt_url)
@@ -194,23 +194,6 @@ class ScanPipeline:
 
     async def count_recent_scans(self, chat_type: str, identifier: int) -> int:
         return await self._repo.count_recent_scans(chat_type, identifier)
-
-    async def was_recently_scanned(self, request: ScanRequest) -> bool:
-        """True if this URL/file already has a recent cached VirusTotal verdict,
-        meaning a re-scan reuses the record instead of calling the VT API."""
-        for url in request.urls:
-            cached = await self._repo.find_recent_by_url(normalize_url(url))
-            if cached is not None and cached.vt_status is not None:
-                return True
-        if request.file_path:
-            try:
-                sha256 = sha256_file(request.file_path)
-            except OSError:
-                return False
-            cached = await self._repo.find_recent_by_hash(sha256)
-            if cached is not None and cached.vt_status is not None:
-                return True
-        return False
 
     async def _classify_or_none(
         self,
@@ -292,7 +275,7 @@ class ScanPipeline:
     ) -> ScanRecord:
         vt_verdict = vt_file or vt_url
         return ScanRecord(
-            chat_id=request.chat_id,
+            chat_id=request.chat_id if request.chat_type == "group" else None,
             user_id=request.user_id,
             chat_type=request.chat_type,
             input_type=request.input_type,

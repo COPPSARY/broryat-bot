@@ -82,7 +82,6 @@ def _user_pref_repo():
 def _pipeline():
     pipeline = AsyncMock()
     pipeline.count_recent_scans = AsyncMock(return_value=0)
-    pipeline.was_recently_scanned = AsyncMock(return_value=False)
     return pipeline
 
 
@@ -311,16 +310,15 @@ async def test_below_daily_limit_still_scans():
     pipeline.run.assert_awaited_once()
 
 
-async def test_cached_repeat_bypasses_daily_limit():
+async def test_daily_limit_reached_blocks_scan_even_for_a_cached_repeat():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
     pipeline.count_recent_scans = AsyncMock(return_value=3)
-    pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 
     await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
 
-    pipeline.run.assert_awaited_once()
+    pipeline.run.assert_not_awaited()
 
 
 async def test_document_without_link_is_scanned():
@@ -362,7 +360,7 @@ async def test_oversized_document_is_rejected_without_calling_pipeline():
     document = MagicMock()
     document.file_name = "big.exe"
     document.mime_type = "application/octet-stream"
-    document.file_size = 25 * 1024 * 1024
+    document.file_size = 60 * 1024 * 1024
     update = _update(text=None, document=document)
     pipeline = _pipeline()
 
@@ -424,7 +422,7 @@ async def test_delete_failure_falls_back_to_full_risk_report():
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
     pipeline.run.return_value = _scan_result(
-        message="Do not click the link.",
+        risk_level=RiskLevel.HIGH,
         vt_url=VTUrlVerdict(url="https://example.com", status="malicious", malicious_count=5, total_engines=10),
     )
     context = _context()
@@ -434,20 +432,39 @@ async def test_delete_failure_falls_back_to_full_risk_report():
 
     placeholder = update.message.reply_text.return_value
     placeholder.edit_text.assert_awaited()
-    assert "Do not click the link." in placeholder.edit_text.await_args.args[0]
+    text = placeholder.edit_text.await_args.args[0]
+    assert "Risk Level: HIGH" in text
+    assert "5/10" in text
 
 
 async def test_non_malicious_result_shows_response_then_deletes_after_five_seconds(mock_sleep):
     update = _update(text="check this out https://example.com")
     pipeline = _pipeline()
-    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH, message="Do not click the link.")
+    pipeline.run.return_value = _scan_result(risk_level=RiskLevel.HIGH)
     context = _context()
 
     await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
 
     placeholder = update.message.reply_text.return_value
     placeholder.edit_text.assert_awaited_once()
-    assert "Do not click the link." in placeholder.edit_text.await_args.args[0]
+    text = placeholder.edit_text.await_args.args[0]
+    assert "Risk Level: HIGH" in text
+    assert "Do not click, open, or reply to it." in text
     mock_sleep.assert_awaited_once_with(5)
     placeholder.delete.assert_awaited_once()
     context.bot.delete_message.assert_not_awaited()
+
+
+async def test_group_response_never_includes_the_ai_freeform_message():
+    update = _update(text="check this out https://example.com")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result(
+        risk_level=RiskLevel.HIGH, message="THIS EXACT AI SENTENCE SHOULD NOT APPEAR"
+    )
+    context = _context()
+
+    await handle_group_message(update, context, pipeline, _group_pref_repo(), group_scan_enabled=True)
+
+    placeholder = update.message.reply_text.return_value
+    text = placeholder.edit_text.await_args.args[0]
+    assert "THIS EXACT AI SENTENCE SHOULD NOT APPEAR" not in text

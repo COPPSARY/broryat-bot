@@ -1,7 +1,14 @@
 from functools import partial
 
 from telegram import BotCommand
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    ChatMemberHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.database.report_repository import ReportRepository
@@ -22,6 +29,7 @@ from bot.handlers.email_breach import email_command
 from bot.handlers.group import handle_group_message
 from bot.handlers.language import handle_language_choice
 from bot.handlers.media import handle_unsupported_media
+from bot.handlers.membership import handle_bot_membership_update
 from bot.handlers.private import handle_private_message, handle_private_photo
 from bot.handlers.report import handle_report_callback
 from bot.handlers.secretary import (
@@ -156,6 +164,7 @@ def register_handlers(
                 partial(
                     handle_business_connection,
                     secretary_pref_repo=secretary_pref_repo,
+                    user_pref_repo=user_pref_repo,
                 ),
             )
         )
@@ -186,6 +195,16 @@ def register_handlers(
                 image_extractor=image_extractor,
                 max_file_size_bytes=max_file_size_bytes,
             ),
+        )
+    )
+    app.add_handler(
+        ChatMemberHandler(
+            partial(
+                handle_bot_membership_update,
+                group_pref_repo=group_pref_repo,
+                user_pref_repo=user_pref_repo,
+            ),
+            ChatMemberHandler.MY_CHAT_MEMBER,
         )
     )
     app.add_handler(

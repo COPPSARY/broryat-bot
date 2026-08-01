@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
-from bot.handlers.formatting import format_response
+from bot.handlers.formatting import format_group_response
 from bot.handlers.keyboards import virustotal_keyboard
 from bot.handlers.progress import send_placeholder, track_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
@@ -79,8 +79,6 @@ async def handle_group_message(
     if message is None:
         return
 
-    # Never scan animated content: GIFs arrive as an animation (Telegram converts
-    # them to MP4), and stickers cover animated emoji.
     if message.animation is not None or message.sticker is not None:
         return
 
@@ -91,7 +89,6 @@ async def handle_group_message(
     if document is None and not urls:
         return
 
-    # OCR is private-only; in groups we don't scan images at all.
     if document is not None and is_image_document(document.file_name, document.mime_type):
         return
 
@@ -147,9 +144,7 @@ async def handle_group_message(
             language=language,
         )
 
-    if not await pipeline.was_recently_scanned(request) and (
-        await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT
-    ):
+    if await pipeline.count_recent_scans("group", message.chat_id) >= _DAILY_LIMIT:
         if message.chat_id not in _LIMIT_NOTIFIED:
             _LIMIT_NOTIFIED.add(message.chat_id)
             if placeholder is not None:
@@ -182,14 +177,14 @@ async def run_group_scan(
             await context.bot.delete_message(chat_id=message.chat_id, message_id=message.message_id)
         except TelegramError:
             await edit_with_markdown(
-                placeholder, format_response(result), reply_markup=virustotal_keyboard(result, language)
+                placeholder, format_group_response(result), reply_markup=virustotal_keyboard(result, language)
             )
             return
         await placeholder.edit_text(_MALWARE_REMOVED[language])
         return
 
     await edit_with_markdown(
-        placeholder, format_response(result), reply_markup=virustotal_keyboard(result, language)
+        placeholder, format_group_response(result), reply_markup=virustotal_keyboard(result, language)
     )
     await asyncio.sleep(5)
     await placeholder.delete()

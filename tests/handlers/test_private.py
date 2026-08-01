@@ -57,7 +57,6 @@ def _group_pref_repo():
 def _pipeline():
     pipeline = AsyncMock()
     pipeline.count_recent_scans = AsyncMock(return_value=0)
-    pipeline.was_recently_scanned = AsyncMock(return_value=False)
     return pipeline
 
 
@@ -253,7 +252,7 @@ async def test_gif_document_is_ignored_silently():
 async def test_oversized_file_is_rejected_without_calling_pipeline():
     document = MagicMock()
     document.file_name = "big.exe"
-    document.file_size = 25 * 1024 * 1024
+    document.file_size = 60 * 1024 * 1024
     update = _update(document=document)
     pipeline = _pipeline()
 
@@ -390,16 +389,15 @@ async def test_below_daily_limit_still_scans():
     pipeline.run.assert_awaited_once()
 
 
-async def test_cached_repeat_bypasses_daily_limit():
+async def test_daily_limit_reached_blocks_scan_even_for_a_cached_repeat():
     update = _update(text="https://example.com/promo")
     pipeline = _pipeline()
     pipeline.count_recent_scans = AsyncMock(return_value=3)
-    pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 
     await handle_private_message(update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo(), _extractor())
 
-    pipeline.run.assert_awaited_once()
+    pipeline.run.assert_not_awaited()
 
 
 async def test_lone_trusted_domain_link_skips_scan_entirely():

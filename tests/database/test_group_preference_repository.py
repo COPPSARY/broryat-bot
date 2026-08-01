@@ -71,3 +71,31 @@ async def test_set_group_name_does_not_overwrite_existing_language(repo, engine)
         pref = session.get(GroupPreference, -100123)
         assert pref.language == "km"
         assert pref.group_name == "Scam Watch"
+
+
+async def test_set_added_by_persists_the_adder(repo, engine):
+    await repo.set_added_by(-100123, 999)
+
+    with Session(engine) as session:
+        pref = session.get(GroupPreference, -100123)
+        assert pref.added_by_user_id == 999
+
+
+async def test_set_added_by_upserts_without_duplicating_rows(repo, engine):
+    await repo.set_added_by(-100123, 999)
+    await repo.set_added_by(-100123, 111)
+
+    with Session(engine) as session:
+        rows = session.exec(select(GroupPreference).where(GroupPreference.chat_id == -100123)).all()
+        assert len(rows) == 1
+        assert rows[0].added_by_user_id == 111
+
+
+async def test_set_added_by_does_not_overwrite_existing_group_name(repo, engine):
+    await repo.set_group_name(-100123, "Scam Watch")
+    await repo.set_added_by(-100123, 999)
+
+    with Session(engine) as session:
+        pref = session.get(GroupPreference, -100123)
+        assert pref.group_name == "Scam Watch"
+        assert pref.added_by_user_id == 999

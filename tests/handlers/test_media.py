@@ -42,7 +42,6 @@ def _group_pref_repo(language=None):
 def _pipeline():
     pipeline = AsyncMock()
     pipeline.count_recent_scans = AsyncMock(return_value=0)
-    pipeline.was_recently_scanned = AsyncMock(return_value=False)
     return pipeline
 
 
@@ -180,18 +179,17 @@ async def test_group_daily_limit_reached_blocks_scan():
     assert "៣" in text
 
 
-async def test_private_cached_repeat_bypasses_daily_limit():
+async def test_private_daily_limit_reached_blocks_scan_even_for_a_cached_repeat():
     update = _update(caption="check this out https://example.com", chat_type="private")
     pipeline = _pipeline()
     pipeline.count_recent_scans = AsyncMock(return_value=3)
-    pipeline.was_recently_scanned = AsyncMock(return_value=True)
     pipeline.run.return_value = _scan_result()
 
     await handle_unsupported_media(
         update, MagicMock(), pipeline, _user_pref_repo(language="en"), _group_pref_repo()
     )
 
-    pipeline.run.assert_awaited_once()
+    pipeline.run.assert_not_awaited()
 
 
 async def test_group_photo_with_caption_url_is_scanned():
