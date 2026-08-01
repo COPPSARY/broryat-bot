@@ -198,6 +198,7 @@ def register_handlers(
                 pipeline=pipeline,
                 group_pref_repo=group_pref_repo,
                 group_scan_enabled=group_scan_enabled,
+                user_pref_repo=user_pref_repo,
                 max_file_size_bytes=max_file_size_bytes,
             ),
         )
