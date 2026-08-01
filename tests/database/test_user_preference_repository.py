@@ -79,3 +79,36 @@ async def test_set_username_does_not_overwrite_existing_language(repo, engine):
         pref = session.get(UserPreference, 123)
         assert pref.language == "km"
         assert pref.username == "johndoe"
+
+
+async def test_set_name_creates_row_when_missing(repo, engine):
+    await repo.set_name(123, "John", "Doe")
+
+    with Session(engine) as session:
+        pref = session.get(UserPreference, 123)
+        assert pref.first_name == "John"
+        assert pref.last_name == "Doe"
+
+
+async def test_set_name_upserts_without_duplicating_rows(repo, engine):
+    await repo.set_name(123, "John", "Doe")
+    await repo.set_name(123, "Jane", "Smith")
+
+    with Session(engine) as session:
+        rows = session.exec(select(UserPreference).where(UserPreference.user_id == 123)).all()
+        assert len(rows) == 1
+        assert rows[0].first_name == "Jane"
+        assert rows[0].last_name == "Smith"
+
+
+async def test_set_name_does_not_overwrite_existing_username_or_language(repo, engine):
+    await repo.set_language(123, "km")
+    await repo.set_username(123, "johndoe")
+    await repo.set_name(123, "John", "Doe")
+
+    with Session(engine) as session:
+        pref = session.get(UserPreference, 123)
+        assert pref.language == "km"
+        assert pref.username == "johndoe"
+        assert pref.first_name == "John"
+        assert pref.last_name == "Doe"

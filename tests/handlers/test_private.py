@@ -13,7 +13,16 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     )
 
 
-def _update(text=None, document=None, forward_origin=None, username="johndoe", animation=None, sticker=None):
+def _update(
+    text=None,
+    document=None,
+    forward_origin=None,
+    username="johndoe",
+    first_name="John",
+    last_name="Doe",
+    animation=None,
+    sticker=None,
+):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
@@ -24,6 +33,8 @@ def _update(text=None, document=None, forward_origin=None, username="johndoe", a
     update.message.chat_id = 111
     update.message.from_user.id = 222
     update.message.from_user.username = username
+    update.message.from_user.first_name = first_name
+    update.message.from_user.last_name = last_name
     update.effective_chat.type = "private"
     update.effective_chat.id = 111
     update.effective_user.id = 222
@@ -80,6 +91,22 @@ async def test_records_the_sender_username_in_user_preferences():
     await handle_private_message(update, MagicMock(), pipeline, user_pref_repo, _group_pref_repo(), _extractor())
 
     user_pref_repo.set_username.assert_awaited_once_with(222, "janedoe")
+
+
+async def test_records_the_sender_name_in_user_preferences():
+    update = _update(
+        text="Hello, is this app legit?",
+        forward_origin=MagicMock(),
+        first_name="Jane",
+        last_name="Doe",
+    )
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+    user_pref_repo = _user_pref_repo()
+
+    await handle_private_message(update, MagicMock(), pipeline, user_pref_repo, _group_pref_repo(), _extractor())
+
+    user_pref_repo.set_name.assert_awaited_once_with(222, "Jane", "Doe")
 
 
 async def test_message_that_is_only_a_url_sets_input_type_url():

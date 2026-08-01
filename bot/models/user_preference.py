@@ -12,4 +12,6 @@ class UserPreference(SQLModel, table=True):
     user_id: int = Field(sa_column=Column(BigInteger, primary_key=True))
     language: str | None = None
     username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     updated_at: datetime = Field(default_factory=now_phnom_penh)
