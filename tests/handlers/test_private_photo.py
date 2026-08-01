@@ -14,12 +14,14 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed."):
     )
 
 
-def _update(username="johndoe"):
+def _update(username="johndoe", first_name="John", last_name="Doe"):
     update = MagicMock()
     update.message.caption = None
     update.message.chat_id = 111
     update.message.from_user.id = 222
     update.message.from_user.username = username
+    update.message.from_user.first_name = first_name
+    update.message.from_user.last_name = last_name
     update.message.photo = [MagicMock(file_id="small"), MagicMock(file_id="large")]
     placeholder = AsyncMock()
     update.message.reply_text = AsyncMock(return_value=placeholder)
@@ -110,6 +112,17 @@ async def test_records_the_sender_username():
     )
 
     user_pref_repo.set_username.assert_awaited_once_with(222, "janedoe")
+
+
+async def test_records_the_sender_name():
+    update = _update(first_name="Jane", last_name="Smith")
+    user_pref_repo = _user_pref_repo()
+
+    await handle_private_photo(
+        update, _context(), _pipeline(), _extractor(), user_pref_repo, _group_pref_repo()
+    )
+
+    user_pref_repo.set_name.assert_awaited_once_with(222, "Jane", "Smith")
 
 
 async def test_replies_friendly_when_no_text_found_and_does_not_scan():

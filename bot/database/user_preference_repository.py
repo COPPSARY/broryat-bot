@@ -46,3 +46,18 @@ class UserPreferenceRepository:
                 session.commit()
 
         await asyncio.to_thread(_upsert)
+
+    async def set_name(self, user_id: int, first_name: str | None, last_name: str | None) -> None:
+        def _upsert() -> None:
+            with Session(self._engine) as session:
+                pref = session.get(UserPreference, user_id)
+                if pref is None:
+                    pref = UserPreference(user_id=user_id, first_name=first_name, last_name=last_name)
+                else:
+                    pref.first_name = first_name
+                    pref.last_name = last_name
+                    pref.updated_at = now_phnom_penh()
+                session.add(pref)
+                session.commit()
+
+        await asyncio.to_thread(_upsert)

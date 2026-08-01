@@ -189,6 +189,7 @@ async def handle_private_message(
 
     stored_language = await user_pref_repo.get_language(message.from_user.id)
     await user_pref_repo.set_username(message.from_user.id, message.from_user.username)
+    await user_pref_repo.set_name(message.from_user.id, message.from_user.first_name, message.from_user.last_name)
 
     if document is not None:
         if is_gif(document.file_name, document.mime_type):
@@ -283,6 +284,7 @@ async def handle_private_photo(
     message = update.message
     stored_language = await user_pref_repo.get_language(message.from_user.id)
     await user_pref_repo.set_username(message.from_user.id, message.from_user.username)
+    await user_pref_repo.set_name(message.from_user.id, message.from_user.first_name, message.from_user.last_name)
 
     tg_file = await context.bot.get_file(message.photo[-1].file_id)
     image_bytes = bytes(await tg_file.download_as_bytearray())
