@@ -27,8 +27,8 @@ _STATUS_SEVERITY = {
 }
 
 _NO_TEXT_PLACEHOLDER = "(No message text — only a file or URL was submitted for scanning.)"
-_AI_TIMEOUT_SECONDS = 30
-_SCAN_AI_TIMEOUT_SECONDS = 10
+_AI_TIMEOUT_SECONDS = 45
+_SCAN_AI_TIMEOUT_SECONDS = 30
 
 
 def _worst_url_verdict(verdicts: list[VTUrlVerdict]) -> VTUrlVerdict | None:
@@ -69,9 +69,9 @@ def _vt_risk_level(vt_file: VTFileVerdict | None, vt_url: VTUrlVerdict | None) -
 
 def _build_vt_context(vt_file: VTFileVerdict | None, vt_url: VTUrlVerdict | None) -> str | None:
     parts = []
-    if vt_file is not None:
+    if vt_file is not None and vt_file.status != "pending":
         parts.append(f"File scan: {_verdict_summary(vt_file)}")
-    if vt_url is not None:
+    if vt_url is not None and vt_url.status != "pending":
         parts.append(f"URL scan: {_verdict_summary(vt_url)}")
     if not parts:
         return None

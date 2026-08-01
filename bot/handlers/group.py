@@ -2,7 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from telegram import Update
+from telegram import Message, Update
 from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
@@ -10,7 +10,7 @@ from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.handlers.formatting import format_response
 from bot.handlers.keyboards import virustotal_keyboard
-from bot.handlers.progress import run_with_progress
+from bot.handlers.progress import send_placeholder, track_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest, ScanResult
 from bot.services.pipeline import ScanPipeline
@@ -104,10 +104,14 @@ async def handle_group_message(
     if document is None and _is_lone_trusted_link(text, urls):
         return
 
+    placeholder = None
+
     if document is not None:
         if document.file_size > max_file_size_bytes:
             await reply_with_markdown(message, _MAX_SIZE_REACHED[language])
             return
+
+        placeholder = await send_placeholder(message, language)
 
         tg_file = await context.bot.get_file(document.file_id)
         tmp_dir = tempfile.mkdtemp()
@@ -140,13 +144,16 @@ async def handle_group_message(
     ):
         if message.chat_id not in _LIMIT_NOTIFIED:
             _LIMIT_NOTIFIED.add(message.chat_id)
-            placeholder = await reply_with_markdown(message, _LIMIT_REACHED[language])
+            if placeholder is not None:
+                await placeholder.edit_text(_LIMIT_REACHED[language])
+            else:
+                placeholder = await reply_with_markdown(message, _LIMIT_REACHED[language])
             await asyncio.sleep(3)
             await placeholder.delete()
         return
 
     _LIMIT_NOTIFIED.discard(message.chat_id)
-    await run_group_scan(message, context, pipeline, language, request)
+    await run_group_scan(message, context, pipeline, language, request, placeholder=placeholder)
 
 
 async def run_group_scan(
@@ -155,8 +162,11 @@ async def run_group_scan(
     pipeline: ScanPipeline,
     language: str,
     request: ScanRequest,
+    placeholder: Message | None = None,
 ) -> None:
-    placeholder, result = await run_with_progress(message, pipeline.run(request), language)
+    if placeholder is None:
+        placeholder = await send_placeholder(message, language)
+    result = await track_progress(placeholder, pipeline.run(request), language)
 
     if _is_vt_malicious(result):
         await asyncio.sleep(5)

@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class RiskLevel(str, Enum):
+    UNKNOWN = "UNKNOWN"
     SAFE = "SAFE"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -9,7 +10,7 @@ class RiskLevel(str, Enum):
 
     @property
     def _severity(self) -> int:
-        return {"SAFE": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3}[self.value]
+        return {"UNKNOWN": 0, "SAFE": 1, "LOW": 2, "MEDIUM": 3, "HIGH": 4}[self.value]
 
     def __lt__(self, other: "RiskLevel") -> bool:
         if not isinstance(other, RiskLevel):

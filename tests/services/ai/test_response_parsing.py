@@ -11,7 +11,7 @@ def test_extracts_risk_level_from_trailing_marker_line():
     assert message == "Some fully localized message here."
 
 
-@pytest.mark.parametrize("level", ["SAFE", "LOW", "MEDIUM", "HIGH"])
+@pytest.mark.parametrize("level", ["SAFE", "LOW", "MEDIUM", "HIGH", "UNKNOWN"])
 def test_parses_each_risk_level(level):
     text = f"Visible content.\n\nRISK:{level}"
     risk_level, _ = parse_ai_response(text)
