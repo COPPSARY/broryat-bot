@@ -8,10 +8,13 @@ THINKING = {"en": "🤔 Thinking...", "km": "🤔 កំពុងគិត..."}
 ANALYZING = {"en": "🔍 Analyzing...", "km": "🔍 កំពុងវិភាគ..."}
 
 
-async def run_with_progress(
-    message: Message, coroutine, language: str, threshold: float = 3.0
-) -> tuple[Message, Any]:
-    placeholder = await message.reply_text(THINKING[language])
+async def send_placeholder(message: Message, language: str) -> Message:
+    return await message.reply_text(THINKING[language])
+
+
+async def track_progress(
+    placeholder: Message, coroutine, language: str, threshold: float = 3.0
+) -> Any:
     task = asyncio.ensure_future(coroutine)
 
     labels = (ANALYZING[language], THINKING[language])
@@ -26,4 +29,12 @@ async def run_with_progress(
             pass
         i += 1
 
-    return placeholder, task.result()
+    return task.result()
+
+
+async def run_with_progress(
+    message: Message, coroutine, language: str, threshold: float = 3.0
+) -> tuple[Message, Any]:
+    placeholder = await send_placeholder(message, language)
+    result = await track_progress(placeholder, coroutine, language, threshold)
+    return placeholder, result

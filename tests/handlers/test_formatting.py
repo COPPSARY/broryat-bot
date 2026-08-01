@@ -3,6 +3,7 @@ from bot.schemas.enums import RiskLevel
 from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanResult
 from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
+from bot.services.ai.prompt import DISCLAIMER
 
 
 def test_format_response_returns_the_ai_composed_message_verbatim():
@@ -65,6 +66,32 @@ def test_analysis_failed_uses_malicious_virustotal_fallback():
     assert "12/70" in text
     assert "Trojan.Generic" in text
     assert "Do not open" in text
+
+
+def test_analysis_failed_virustotal_fallback_includes_disclaimer():
+    result = ScanResult(
+        risk_level=RiskLevel.HIGH,
+        language="en",
+        vt_file=VTFileVerdict(
+            sha256="a" * 64,
+            status="malicious",
+            malicious_count=12,
+            total_engines=70,
+        ),
+        analysis_failed=True,
+    )
+
+    text = format_response(result)
+
+    assert DISCLAIMER["en"] in text
+
+
+def test_analysis_failed_without_vt_verdict_includes_disclaimer():
+    result = ScanResult(risk_level=RiskLevel.SAFE, language="en", analysis_failed=True)
+
+    text = format_response(result)
+
+    assert DISCLAIMER["en"] in text
 
 
 def test_analysis_failed_uses_khmer_virustotal_fallback():

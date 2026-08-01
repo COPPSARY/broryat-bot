@@ -18,7 +18,7 @@ from bot.handlers.commands import (
 )
 from bot.handlers.formatting import format_response
 from bot.handlers.keyboards import resolve_menu_topic, virustotal_keyboard
-from bot.handlers.progress import run_with_progress
+from bot.handlers.progress import run_with_progress, send_placeholder, track_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest
 from bot.services.ai.image_extractors.base import ImageExtractionError, ImageExtractor
@@ -205,12 +205,15 @@ async def handle_private_message(
             await _run_image_scan(message, pipeline, image_extractor, stored_language, image_bytes, mime_type)
             return
 
+        text = message.caption
+        language = stored_language or (detect_language(text) if text else "en")
+        placeholder = await send_placeholder(message, language)
+
         tg_file = await context.bot.get_file(document.file_id)
         tmp_dir = tempfile.mkdtemp()
         file_path = str(Path(tmp_dir) / document.file_name)
         await tg_file.download_to_drive(file_path)
 
-        text = message.caption
         request = ScanRequest(
             chat_id=message.chat_id,
             user_id=message.from_user.id,
@@ -219,8 +222,20 @@ async def handle_private_message(
             text=text,
             file_path=file_path,
             file_name=document.file_name,
-            language=stored_language or (detect_language(text) if text else "en"),
+            language=language,
         )
+
+        if not await pipeline.was_recently_scanned(request) and (
+            await pipeline.count_recent_scans("private", message.from_user.id) >= _DAILY_LIMIT
+        ):
+            await placeholder.edit_text(_limit_reached_message(language))
+            return
+
+        result = await track_progress(placeholder, pipeline.run(request), language)
+        await edit_with_markdown(
+            placeholder, format_response(result), reply_markup=virustotal_keyboard(result, language)
+        )
+        return
     else:
         text = message.text or ""
         urls = extract_urls(text)
