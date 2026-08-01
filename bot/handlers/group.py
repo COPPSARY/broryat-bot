@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 
 from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.database.group_preference_repository import GroupPreferenceRepository
+from bot.database.user_preference_repository import UserPreferenceRepository
 from bot.handlers.formatting import format_response
 from bot.handlers.keyboards import virustotal_keyboard
 from bot.handlers.progress import send_placeholder, track_progress
@@ -68,6 +69,7 @@ async def handle_group_message(
     pipeline: ScanPipeline,
     group_pref_repo: GroupPreferenceRepository,
     group_scan_enabled: bool,
+    user_pref_repo: UserPreferenceRepository | None = None,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
 ) -> None:
     if not group_scan_enabled:
@@ -96,6 +98,12 @@ async def handle_group_message(
     stored_language = await group_pref_repo.get_language(message.chat_id)
     language = stored_language or "km"
     await group_pref_repo.set_group_name(message.chat_id, message.chat.title)
+
+    if user_pref_repo is not None and message.from_user is not None:
+        await user_pref_repo.set_username(message.from_user.id, message.from_user.username)
+        await user_pref_repo.set_name(
+            message.from_user.id, message.from_user.first_name, message.from_user.last_name
+        )
 
     if document is None and _is_lone_own_website_link(text, urls):
         await reply_with_markdown(message, _OWN_WEBSITE[language])

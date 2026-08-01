@@ -33,7 +33,16 @@ def _scan_result(risk_level=RiskLevel.SAFE, message="No action needed.", vt_file
     )
 
 
-def _update(text="check this https://example.com", document=None, chat_title="Scam Watch", animation=None, sticker=None):
+def _update(
+    text="check this https://example.com",
+    document=None,
+    chat_title="Scam Watch",
+    animation=None,
+    sticker=None,
+    username="johndoe",
+    first_name="John",
+    last_name="Doe",
+):
     update = MagicMock()
     update.message.text = text
     update.message.caption = None
@@ -44,6 +53,9 @@ def _update(text="check this https://example.com", document=None, chat_title="Sc
     update.message.chat_id = 999
     update.message.message_id = 555
     update.message.from_user.id = 42
+    update.message.from_user.username = username
+    update.message.from_user.first_name = first_name
+    update.message.from_user.last_name = last_name
     update.message.chat.title = chat_title
     placeholder = AsyncMock()
     update.message.reply_text = AsyncMock(return_value=placeholder)
@@ -61,6 +73,10 @@ def _group_pref_repo(language=None):
     repo = AsyncMock()
     repo.get_language.return_value = language
     return repo
+
+
+def _user_pref_repo():
+    return AsyncMock()
 
 
 def _pipeline():
@@ -89,6 +105,33 @@ async def test_records_the_group_name_in_group_preferences():
     await handle_group_message(update, _context(), pipeline, group_pref_repo, group_scan_enabled=True)
 
     group_pref_repo.set_group_name.assert_awaited_once_with(999, "Scam Watch")
+
+
+async def test_records_the_sender_in_user_preferences_when_sending_a_link():
+    update = _update(username="janedoe", first_name="Jane", last_name="Smith")
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+    user_pref_repo = _user_pref_repo()
+
+    await handle_group_message(
+        update,
+        _context(),
+        pipeline,
+        _group_pref_repo(),
+        group_scan_enabled=True,
+        user_pref_repo=user_pref_repo,
+    )
+
+    user_pref_repo.set_username.assert_awaited_once_with(42, "janedoe")
+    user_pref_repo.set_name.assert_awaited_once_with(42, "Jane", "Smith")
+
+
+async def test_does_not_crash_when_user_pref_repo_not_provided():
+    update = _update()
+    pipeline = _pipeline()
+    pipeline.run.return_value = _scan_result()
+
+    await handle_group_message(update, _context(), pipeline, _group_pref_repo(), group_scan_enabled=True)
 
 
 async def test_image_document_is_ignored_silently():
