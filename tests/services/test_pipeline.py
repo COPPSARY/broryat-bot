@@ -691,6 +691,54 @@ async def test_was_recently_scanned_true_when_file_hash_has_cached_verdict(tmp_p
     assert await pipeline.was_recently_scanned(request) is True
 
 
+async def test_pending_url_scan_is_not_marked_safe_and_is_not_persisted():
+    ai_provider = AsyncMock()
+    ai_provider.classify.return_value = _intent_result(
+        risk_level=RiskLevel.HIGH, message="This looks dangerous.",
+    )
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com", status="pending", malicious_count=0, total_engines=0,
+    )
+    pipeline, ai_provider, vt_client, repo = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    request = ScanRequest(
+        chat_id=1, user_id=2, chat_type="private", input_type="url",
+        text="check this out", urls=["https://example.com"], language="en",
+    )
+
+    result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.UNKNOWN
+    assert result.scan_record_id is None
+    ai_provider.classify.assert_not_awaited()
+    repo.insert_scan.assert_not_awaited()
+
+
+async def test_pending_file_scan_is_not_marked_safe_and_is_not_persisted():
+    ai_provider = AsyncMock()
+    vt_client = AsyncMock()
+    vt_client.get_file_report.return_value = VTFileVerdict(
+        sha256="a" * 64, status="pending", malicious_count=0, total_engines=0,
+    )
+    pipeline, ai_provider, vt_client, repo = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    with tempfile.TemporaryDirectory() as d:
+        file_path = Path(d) / "sample.exe"
+        file_path.write_bytes(b"fake binary")
+
+        request = ScanRequest(
+            chat_id=1, user_id=2, chat_type="private", input_type="file",
+            file_path=str(file_path), file_name="sample.exe", language="en",
+        )
+        result = await pipeline.run(request)
+
+    assert result.risk_level == RiskLevel.UNKNOWN
+    assert result.scan_record_id is None
+    ai_provider.classify.assert_not_awaited()
+    repo.insert_scan.assert_not_awaited()
+
+
 async def test_was_recently_scanned_false_for_plain_text_request():
     repo = AsyncMock()
     repo.find_recent_by_url.return_value = None

@@ -109,10 +109,16 @@ class ScanPipeline:
             vt_file.status if vt_file else "unavailable",
             vt_url.status if vt_url else "unavailable",
         )
-        skip_ai = request.chat_type == "business" and bool(
-            request.file_path or request.urls
+        is_pending = (vt_file is not None and vt_file.status == "pending") or (
+            vt_url is not None and vt_url.status == "pending"
         )
-        if skip_ai:
+        skip_ai = is_pending or (
+            request.chat_type == "business" and bool(request.file_path or request.urls)
+        )
+        if is_pending:
+            logger.info("VirusTotal scan still pending; skipping AI classification")
+            ai_result = None
+        elif skip_ai:
             logger.info("AI classification skipped for Telegram Business scan")
             ai_result = None
         else:
@@ -130,6 +136,21 @@ class ScanPipeline:
                 ),
             )
             logger.info("AI classification completed: available=%s", ai_result is not None)
+
+        if is_pending:
+            # VirusTotal hasn't finished analyzing this file/URL yet. Don't guess a risk
+            # level, don't persist a half-finished result, and don't hand anything to the
+            # user — the caller re-checks the pending status and shows a "still scanning"
+            # message instead.
+            return ScanResult(
+                risk_level=RiskLevel.UNKNOWN,
+                language=request.language,
+                ai=None,
+                vt_file=vt_file,
+                vt_url=vt_url,
+                analysis_failed=False,
+                scan_record_id=None,
+            )
 
         risk_level = self._resolve_risk_level(request, ai_result, vt_file, vt_url)
         analysis_failed = not skip_ai and ai_result is None
