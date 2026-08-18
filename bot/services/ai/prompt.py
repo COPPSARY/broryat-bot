@@ -20,21 +20,22 @@ Message:
 {vt_section}
 
 DECISION RULES:
-1. For a URL or file, the VirusTotal scan result decides the risk level; never overrule it.
-   Do not raise the risk based on the domain name, URL shape, redirects, or your own suspicion.
-2. Report malicious as HIGH, suspicious as MEDIUM, clean as SAFE, and inconclusive as UNKNOWN.
-   If no scan result was found for a URL/file, report the risk level as Safe and say the scan found nothing.
-3. Only when there is no URL and no file, judge the message text for scam intent: {categories}.
-4. Never invent detections, threat names, scan results, or security claims.
+1. If a URL or file has a VirusTotal result, VirusTotal is authoritative:
+    - malicious/suspicious -> clarify based only on that result.
+    - clean/0 detection -> SAFE.
+    - inconclusive/unknown -> UNKNOWN.
+    Never increase or decrease VT's risk by your own judgment.
+2. If a URL/file exists but VT found no result, classify SAFE and state that the scan found nothing. Do not judge the URL/domain yourself. 
+3. Only if there is NO URL/file, analyze the message text for: {categories} 
+4. Never invent detections, threat names, scan results, or security claims. 
 
 OUTPUT: 
-- Translate the entire visible reply into "{language}", including the labels Risk Level,
-  Explanation, and Recommendation, and the risk words Safe, Low, Medium, High, and Unknown.
+- Visible text must be entirely in "{language}", including labels and risk names. 
 - Telegram Markdown only: *bold*. 
 - Keep concise: 1–2 analysis sentences, exactly 2 explanation bullets, 1 recommendation bullet. 
 - No headings using #, code blocks, or quoted reply. 
-- The final line must be exactly `RISK:LEVEL`, where LEVEL is SAFE, LOW, MEDIUM, HIGH, or UNKNOWN.
-- Nothing may appear after the RISK line.
+- End with exactly `RISK:LEVEL`, where LEVEL is SAFE, LOW, MEDIUM, HIGH, or UNKNOWN. 
+- Nothing may appear after the RISK line. 
 
 FORMAT: 
 [emoji] *[Risk Level]:* [translated risk] [emoji] 
@@ -55,12 +56,11 @@ VT_SECTION_TEMPLATE = """
 VirusTotal: 
 {vt_context} 
 
-Interpretation:
-    - malicious → HIGH; mention how many security tools detected it and identify a known
-      threat type when present (Trojan, ransomware, spyware, adware, banking malware, phishing).
-    - suspicious → MEDIUM; mention the tool count/reason and advise avoiding it until verified.
-    - clean/0 detections → report the risk level as Safe; say no security tools flagged it.
-    - unknown → UNKNOWN; say the result is inconclusive.
+Interpretation: 
+    - malicious → HIGH; mention detection count and known threat type; advise not to open/click, delete, and report. 
+    - suspicious → MEDIUM; mention detection count/reason; advise avoiding it until verified. 
+    - clean → SAFE; say no security tools flagged it; advise normal caution. 
+    - unknown → UNKNOWN; say the result is inconclusive. 
 
 Use only information present in the VirusTotal result.
 """
