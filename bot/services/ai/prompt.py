@@ -3,7 +3,7 @@ DISCLAIMER = {
     "km": "Broryat អាចនឹងមានកំហុស។ សូមពិនិត្យព័ត៌មានសំខាន់ៗ។",
 }
 
-CATEGORIES = (
+CATEGORIES = ( 
     "Telegram impersonation, banking scams, fake recruitment, "
     "fake government announcements, investment or cryptocurrency scams, "
     "social engineering, credential theft, malware delivery, and urgency tactics"
