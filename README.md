@@ -47,8 +47,8 @@ See [`docs/features.md`](docs/features.md) for full behavior and limitations.
 > **Warning:** The bot downloads whatever files users send it — including real malware — so it can hash and scan them. **Run it in Docker, not directly on your laptop**, so any malicious file stays contained to the container instead of touching your filesystem.
 
 ```bash
-git clone https://github.com/COPPSARY/broryat-a.git
-cd broryat-a
+git clone https://github.com/COPPSARY/broryat-bot.git
+cd broryat-bot
 cp .env.example .env   # fill in your tokens/keys, see docs/configuration.md
 
 docker build -t broryat-ai .

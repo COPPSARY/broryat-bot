@@ -8,7 +8,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 ```bash
 git clone https://github.com/COPPSARY/broryat-bot
-cd broryat-ai
+cd broryat-bot
 cp .env.example .env   # fill in tokens/keys, see README for details
 uv sync
 ```
