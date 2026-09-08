@@ -281,6 +281,39 @@ async def test_request_rotates_to_next_key_when_quota_is_exhausted(rate_limiter)
 
 
 @respx.mock
+async def test_quota_rotation_logs_virustotal_retry_after(rate_limiter, caplog):
+    url = "https://example.com/phish"
+    respx.get(f"https://www.virustotal.com/api/v3/urls/{url_id_for(url)}").mock(
+        side_effect=[
+            httpx.Response(
+                429,
+                headers={"Retry-After": "60"},
+                json={"error": {"code": "QuotaExceededError"}},
+            ),
+            httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "attributes": {
+                            "last_analysis_stats": {"malicious": 0, "undetected": 70}
+                        }
+                    }
+                },
+            ),
+        ]
+    )
+    client = VirusTotalClient(
+        api_key=None,
+        api_keys=["vt-first", "vt-second"],
+        rate_limiter=rate_limiter,
+    )
+
+    await client.get_url_report(url)
+
+    assert "retry after 60s" in caplog.text
+
+
+@respx.mock
 async def test_all_quota_exhausted_keys_raise_a_specific_error(rate_limiter):
     url = "https://example.com/phish"
     respx.get(f"https://www.virustotal.com/api/v3/urls/{url_id_for(url)}").mock(
