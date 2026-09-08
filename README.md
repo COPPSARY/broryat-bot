@@ -75,7 +75,7 @@ Broryat AI is being built in phases. **Phase 1 is complete and is what this repo
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Telegram bot: AI + VirusTotal detection for text, files, and URLs; Khmer & English support; group protection and owner-confirmed Telegram Business moderation | ✅ Implemented |
+| 1 | Telegram bot: AI + VirusTotal detection in private chats, VirusTotal-only group scans, Khmer & English support, and owner-confirmed Telegram Business moderation | ✅ Implemented |
 | 2 | Configurable per-group strictness and compromised-account detection (a trusted member suddenly posting malware/phishing) | Planned |
 | 3 | Threat-intelligence database and analytics dashboard | Planned |
 | 4 | Takedown/reporting workflow with a public API | Planned |

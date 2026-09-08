@@ -18,7 +18,8 @@
 ## Group chat
 
 - Only messages with a link or a document are inspected; everything else is ignored to keep the group quiet.
-- Risky-but-unconfirmed content gets a brief warning reply; when VirusTotal confirms a file or link is malicious, the bot deletes the message instead and posts a short warning.
+- Group scans use VirusTotal only; AI classification is not invoked.
+- Only VirusTotal-confirmed malicious or suspicious files and links receive a concise warning with detection details. Clean, unknown, and pending results remain silent.
 - Defaults to Khmer, switchable per-group via `/language`.
 
 ## Chat Automation
@@ -26,7 +27,7 @@
 Add Broryat to Telegram Chat Automation to scan files and links received in your private chats:
 
 - Incoming URLs and supported files are checked by VirusTotal; ordinary conversation is ignored.
-- Confirmed malicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
+- Confirmed malicious or suspicious content shows owner-only **Delete** and **Keep** controls with detection details and a false-positive disclaimer.
 - The action notice disappears five seconds after a successful choice.
 - Scan records use anonymous user/chat IDs and never store private-chat text.
 

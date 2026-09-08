@@ -277,6 +277,21 @@ async def test_malicious_url_asks_owner_to_delete_or_keep():
     assert sent["parse_mode"] == ParseMode.HTML
     assert "មានមេរោគ" in sent["text"]
     assert "Broryat" in sent["text"]
+    assert "តើអ្នកចង់លុបវាទេ?" in sent["text"]
+    callbacks = [
+        button.callback_data for button in sent["reply_markup"].inline_keyboard[0]
+    ]
+    assert callbacks == ["secretary:delete:555", "secretary:keep:555"]
+
+
+async def test_suspicious_url_also_asks_owner_to_delete_or_keep():
+    pipeline = AsyncMock()
+    pipeline.run.return_value = _result(url_status="suspicious")
+
+    context, _, _ = await _handle(_update(text="https://example.com"), pipeline, language="en")
+
+    sent = context.bot.send_message.await_args.kwargs
+    assert "VirusTotal detections: 0/70" in sent["text"]
     callbacks = [
         button.callback_data for button in sent["reply_markup"].inline_keyboard[0]
     ]

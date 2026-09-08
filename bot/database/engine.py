@@ -1,7 +1,6 @@
 from sqlmodel import SQLModel, create_engine
 
 from bot.models.group_preference import GroupPreference  # noqa: F401  (registers the table with SQLModel.metadata)
-from bot.models.report import UrlReport  # noqa: F401  (registers the table with SQLModel.metadata)
 from bot.models.scan_record import ScanRecord  # noqa: F401  (registers the table with SQLModel.metadata)
 from bot.models.user_preference import UserPreference  # noqa: F401  (registers the table with SQLModel.metadata)
 

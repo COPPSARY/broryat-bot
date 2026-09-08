@@ -13,7 +13,6 @@ All configuration lives in `.env` (see `.env.example` for a template):
 | `VT_RPM_LIMIT` / `VT_DAILY_LIMIT` / `VT_MONTHLY_LIMIT` | VirusTotal rate-limit ceilings (defaults match the free tier) |
 | `DATABASE_URL` | Postgres connection string — tables are created automatically on startup |
 | `GROUP_SCAN_ENABLED` | Enable/disable group scanning |
-| `ADMIN_CHAT_ID` | Telegram chat ID that receives report notifications |
 | `LOG_LEVEL` | Standard Python logging level |
 
 Hugging Face supports the same fallback convention:

@@ -84,7 +84,7 @@ class ScanPipeline:
         self._vt = vt_client
         self._repo = repo
 
-    async def run(self, request: ScanRequest) -> ScanResult:
+    async def run(self, request: ScanRequest, *, use_ai: bool = True) -> ScanResult:
         logger.info(
             "Scan started: file=%s urls=%d",
             request.file_path is not None,
@@ -112,12 +112,14 @@ class ScanPipeline:
         is_pending = (vt_file is not None and vt_file.status == "pending") or (
             vt_url is not None and vt_url.status == "pending"
         )
-        skip_ai = is_pending or (
+        skip_ai = is_pending or not use_ai or (
             request.chat_type == "business" and bool(request.file_path or request.urls)
         )
         if skip_ai:
             if is_pending:
                 logger.info("VirusTotal scan still pending; skipping AI classification")
+            elif not use_ai:
+                logger.info("AI classification disabled for this scan")
             else:
                 logger.info("AI classification skipped for Telegram Business scan")
             ai_result = None

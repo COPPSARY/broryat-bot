@@ -33,7 +33,6 @@ class Settings(BaseSettings):
 
     group_scan_enabled: bool = True
     log_level: str = "INFO"
-    admin_chat_id: int | None = None
 
     def _api_keys(self, prefix: str, primary: str | None) -> list[str]:
         values = {

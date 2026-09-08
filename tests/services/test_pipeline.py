@@ -238,6 +238,36 @@ async def test_business_url_skips_unused_ai_classification():
     assert result.risk_level == RiskLevel.HIGH
 
 
+async def test_scan_can_skip_ai_and_persist_only_the_virustotal_verdict():
+    ai_provider = AsyncMock()
+    vt_client = AsyncMock()
+    vt_client.get_url_report.return_value = VTUrlVerdict(
+        url="https://example.com",
+        status="suspicious",
+        malicious_count=3,
+        total_engines=70,
+    )
+    pipeline, ai_provider, _, repo = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+
+    result = await pipeline.run(
+        ScanRequest(
+            chat_id=-100,
+            user_id=2,
+            chat_type="group",
+            input_type="url",
+            urls=["https://example.com"],
+            language="en",
+        ),
+        use_ai=False,
+    )
+
+    ai_provider.classify.assert_not_awaited()
+    assert result.ai is None
+    assert result.analysis_failed is False
+    assert result.risk_level == RiskLevel.MEDIUM
+    assert repo.insert_scan.await_args.args[0].ai_risk_level is None
+
+
 async def test_file_cache_hit_skips_vt_upload(tmp_path):
     file_path = tmp_path / "sample.exe"
     file_path.write_bytes(b"fake binary")
