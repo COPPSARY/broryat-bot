@@ -103,10 +103,12 @@ class VirusTotalClient:
 
             last_response = response
             self._client_index = (index + 1) % len(self._clients)
+            retry_after = response.headers.get("Retry-After", "not provided")
             logger.warning(
-                "VirusTotal key %d rejected with HTTP %d; trying next key",
+                "VirusTotal key %d rejected with HTTP %d; retry after %ss; trying next key",
                 index + 1,
                 response.status_code,
+                retry_after,
             )
 
         if last_response is not None and last_response.status_code == 429:
