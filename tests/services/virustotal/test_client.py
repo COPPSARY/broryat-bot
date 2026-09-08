@@ -2,7 +2,7 @@ import httpx
 import pytest
 import respx
 
-from bot.services.virustotal.client import VirusTotalClient, url_id_for
+from bot.services.virustotal.client import VirusTotalClient, VirusTotalQuotaExceededError, url_id_for
 from bot.services.virustotal.rate_limiter import VTRateLimiter
 
 
@@ -278,3 +278,19 @@ async def test_request_rotates_to_next_key_when_quota_is_exhausted(rate_limiter)
         "vt-second",
     ]
     assert client._client_index == 1
+
+
+@respx.mock
+async def test_all_quota_exhausted_keys_raise_a_specific_error(rate_limiter):
+    url = "https://example.com/phish"
+    respx.get(f"https://www.virustotal.com/api/v3/urls/{url_id_for(url)}").mock(
+        return_value=httpx.Response(429, json={"error": {"code": "QuotaExceededError"}})
+    )
+    client = VirusTotalClient(
+        api_key=None,
+        api_keys=["vt-first", "vt-second"],
+        rate_limiter=rate_limiter,
+    )
+
+    with pytest.raises(VirusTotalQuotaExceededError):
+        await client.get_url_report(url)

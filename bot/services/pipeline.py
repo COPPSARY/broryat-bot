@@ -11,7 +11,7 @@ from bot.schemas.scan import ScanRequest, ScanResult
 from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
 from bot.services.ai.providers.base import AIProvider
 from bot.services.virustotal.cache import get_cached_or_fetch_file, get_cached_or_fetch_url
-from bot.services.virustotal.client import VirusTotalClient
+from bot.services.virustotal.client import VirusTotalClient, VirusTotalQuotaExceededError
 from bot.services.virustotal.polling import poll_until_complete
 from bot.utils.hashing import sha256_file
 from bot.utils.url_extraction import normalize_url
@@ -104,6 +104,9 @@ class ScanPipeline:
         vt_file = file_result[1] if file_result else None
         primary_url = url_results[0][0] if url_results else None
         vt_url = _worst_url_verdict([r[1] for r in url_results])
+        quota_exhausted = (file_result is not None and file_result[2]) or any(
+            result[2] for result in url_results
+        )
         logger.info(
             "VirusTotal resolution completed: file_status=%s url_status=%s",
             vt_file.status if vt_file else "unavailable",
@@ -112,12 +115,14 @@ class ScanPipeline:
         is_pending = (vt_file is not None and vt_file.status == "pending") or (
             vt_url is not None and vt_url.status == "pending"
         )
-        skip_ai = is_pending or not use_ai or (
+        skip_ai = is_pending or quota_exhausted or not use_ai or (
             request.chat_type == "business" and bool(request.file_path or request.urls)
         )
         if skip_ai:
             if is_pending:
                 logger.info("VirusTotal scan still pending; skipping AI classification")
+            elif quota_exhausted:
+                logger.warning("VirusTotal quota exhausted; skipping AI classification")
             elif not use_ai:
                 logger.info("AI classification disabled for this scan")
             else:
@@ -154,8 +159,12 @@ class ScanPipeline:
                 scan_record_id=None,
             )
 
-        risk_level = self._resolve_risk_level(request, ai_result, vt_file, vt_url)
-        analysis_failed = not skip_ai and ai_result is None
+        risk_level = (
+            RiskLevel.UNKNOWN
+            if quota_exhausted
+            else self._resolve_risk_level(request, ai_result, vt_file, vt_url)
+        )
+        analysis_failed = quota_exhausted or (not skip_ai and ai_result is None)
 
         record = await self._repo.insert_scan(
             self._build_record(request, sha256, primary_url, ai_result, vt_file, vt_url, risk_level)
@@ -213,9 +222,9 @@ class ScanPipeline:
             logger.warning("AI provider failed to classify message", exc_info=True)
             return None
 
-    async def _resolve_file_or_none(self, file_path: str) -> tuple[str, VTFileVerdict] | None:
+    async def _resolve_file_or_none(self, file_path: str) -> tuple[str, VTFileVerdict, bool] | None:
+        sha256 = sha256_file(file_path)
         try:
-            sha256 = sha256_file(file_path)
             verdict = await get_cached_or_fetch_file(sha256, self._repo, self._vt)
             if verdict is None:
                 analysis_id = await self._vt.upload_file(Path(file_path))
@@ -234,14 +243,17 @@ class ScanPipeline:
                     full_report = await self._vt.get_file_report(sha256)
                     if full_report is not None:
                         verdict = full_report
-            return sha256, verdict
+            return sha256, verdict, False
+        except VirusTotalQuotaExceededError:
+            logger.warning("VirusTotal quota exhausted while resolving file %s", file_path)
+            return sha256, VTFileVerdict(sha256=sha256, status="unknown"), True
         except Exception:
             logger.exception("Failed to resolve VirusTotal verdict for file %s", file_path)
             return None
 
-    async def _resolve_url_or_none(self, url: str) -> tuple[str, VTUrlVerdict] | None:
+    async def _resolve_url_or_none(self, url: str) -> tuple[str, VTUrlVerdict, bool] | None:
+        normalized = normalize_url(url)
         try:
-            normalized = normalize_url(url)
             verdict = await get_cached_or_fetch_url(normalized, self._repo, self._vt)
             if verdict is None:
                 analysis_id = await self._vt.scan_url(normalized)
@@ -260,7 +272,10 @@ class ScanPipeline:
                     full_report = await self._vt.get_url_report(normalized)
                     if full_report is not None:
                         verdict = full_report
-            return normalized, verdict
+            return normalized, verdict, False
+        except VirusTotalQuotaExceededError:
+            logger.warning("VirusTotal quota exhausted while resolving URL %s", normalized)
+            return normalized, VTUrlVerdict(url=normalized, status="unknown"), True
         except Exception:
             logger.exception("Failed to resolve VirusTotal verdict for url %s", url)
             return None

@@ -15,6 +15,10 @@ _ROTATABLE_STATUS_CODES = {401, 402, 403, 429}
 logger = logging.getLogger(__name__)
 
 
+class VirusTotalQuotaExceededError(RuntimeError):
+    """Every configured VirusTotal key was rejected for quota exhaustion."""
+
+
 def url_id_for(url: str) -> str:
     return base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
 
@@ -105,6 +109,8 @@ class VirusTotalClient:
                 response.status_code,
             )
 
+        if last_response is not None and last_response.status_code == 429:
+            raise VirusTotalQuotaExceededError("All configured VirusTotal keys are quota-exhausted")
         return last_response
 
     async def get_file_report(self, sha256: str) -> VTFileVerdict | None:
