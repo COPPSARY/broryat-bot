@@ -9,6 +9,7 @@ from bot.schemas.intent import IntentResult
 from bot.schemas.scan import ScanRequest
 from bot.schemas.virustotal import VTFileVerdict, VTUrlVerdict
 from bot.services.ai.providers.base import AIProviderError
+from bot.services.virustotal.client import VirusTotalQuotaExceededError
 from bot.services.pipeline import ScanPipeline, _build_vt_context
 
 
@@ -236,6 +237,33 @@ async def test_business_url_skips_unused_ai_classification():
     ai_provider.classify.assert_not_awaited()
     assert result.analysis_failed is False
     assert result.risk_level == RiskLevel.HIGH
+
+
+async def test_file_quota_exhaustion_returns_an_unknown_result_without_calling_ai(tmp_path):
+    ai_provider = AsyncMock()
+    vt_client = AsyncMock()
+    vt_client.get_file_report.side_effect = VirusTotalQuotaExceededError()
+    pipeline, ai_provider, _, repo = _pipeline(ai_provider=ai_provider, vt_client=vt_client)
+    file_path = tmp_path / "sample.7z"
+    file_path.write_bytes(b"archive")
+
+    result = await pipeline.run(
+        ScanRequest(
+            chat_id=1,
+            user_id=2,
+            chat_type="private",
+            input_type="file",
+            file_path=str(file_path),
+            file_name=file_path.name,
+            language="en",
+        )
+    )
+
+    ai_provider.classify.assert_not_awaited()
+    assert result.risk_level == RiskLevel.UNKNOWN
+    assert result.analysis_failed is True
+    assert result.vt_file.status == "unknown"
+    assert repo.insert_scan.await_args.args[0].final_risk_level == "UNKNOWN"
 
 
 async def test_scan_can_skip_ai_and_persist_only_the_virustotal_verdict():
