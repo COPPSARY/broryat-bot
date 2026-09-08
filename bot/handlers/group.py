@@ -3,14 +3,12 @@ import tempfile
 from pathlib import Path
 
 from telegram import Message, Update
-from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from bot.config.settings import DEFAULT_MAX_FILE_SIZE_BYTES
 from bot.database.group_preference_repository import GroupPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
-from bot.handlers.formatting import format_group_response
-from bot.handlers.keyboards import virustotal_keyboard
+from bot.handlers.formatting import format_vt_alert
 from bot.handlers.progress import send_placeholder, track_progress
 from bot.handlers.reply import edit_with_markdown, reply_with_markdown
 from bot.schemas.scan import ScanRequest, ScanResult
@@ -19,20 +17,15 @@ from bot.utils.images import is_image_document
 from bot.utils.trusted_domains import is_own_domain, is_trusted_domain
 from bot.utils.url_extraction import extract_urls, is_message_only_urls
 
-_MALWARE_REMOVED = {
-    "en": "⚠️ A message was removed — it contained a malicious link or file.",
-    "km": "⚠️ សារមួយត្រូវបានលុបចេញ ដោយសារវាមានផ្ទុកលីងបោកប្រាស់ ឬឯកសារមានមេរោគ។",
-}
-
 _OWN_WEBSITE = {
     "en": "🤖 This is our own official website. No need to worry, and no scan needed!",
     "km": "🤖 នេះជាគេហទំព័រផ្លូវការរបស់ពួកយើងផ្ទាល់។ មិនចាំបាច់បារម្ភទេ ហើយក៏មិនចាំបាច់ស្កេនដែរ!",
 }
 
 
-def _is_vt_malicious(result: ScanResult) -> bool:
-    return (result.vt_file is not None and result.vt_file.status == "malicious") or (
-        result.vt_url is not None and result.vt_url.status == "malicious"
+def _is_vt_flagged(result: ScanResult) -> bool:
+    return (result.vt_file is not None and result.vt_file.status in ("malicious", "suspicious")) or (
+        result.vt_url is not None and result.vt_url.status in ("malicious", "suspicious")
     )
 
 
@@ -169,22 +162,10 @@ async def run_group_scan(
 ) -> None:
     if placeholder is None:
         placeholder = await send_placeholder(message, language)
-    result = await track_progress(placeholder, pipeline.run(request), language)
+    result = await track_progress(placeholder, pipeline.run(request, use_ai=False), language)
 
-    if _is_vt_malicious(result):
-        await asyncio.sleep(5)
-        try:
-            await context.bot.delete_message(chat_id=message.chat_id, message_id=message.message_id)
-        except TelegramError:
-            await edit_with_markdown(
-                placeholder, format_group_response(result), reply_markup=virustotal_keyboard(result, language)
-            )
-            return
-        await placeholder.edit_text(_MALWARE_REMOVED[language])
+    if _is_vt_flagged(result):
+        await edit_with_markdown(placeholder, format_vt_alert(result, language))
         return
 
-    await edit_with_markdown(
-        placeholder, format_group_response(result), reply_markup=virustotal_keyboard(result, language)
-    )
-    await asyncio.sleep(5)
     await placeholder.delete()

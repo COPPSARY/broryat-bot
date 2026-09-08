@@ -13,7 +13,6 @@ LANGUAGE_KEYBOARD = InlineKeyboardMarkup(
 
 
 _VIEW_ANALYZE = {"en": "🔍 View Analysis on VirusTotal", "km": "🔍 មើលការវិភាគនៅលើ VirusTotal"}
-_REPORT_URL = {"en": "🚩 Report this URL", "km": "🚩 រាយការណ៍តំណភ្ជាប់នេះ"}
 
 
 def virustotal_keyboard(result: ScanResult, language: str) -> InlineKeyboardMarkup | None:
@@ -22,10 +21,6 @@ def virustotal_keyboard(result: ScanResult, language: str) -> InlineKeyboardMark
         buttons.append(InlineKeyboardButton(_VIEW_ANALYZE[language], url=result.vt_file.permalink))
     if result.vt_url is not None and result.vt_url.permalink:
         buttons.append(InlineKeyboardButton(_VIEW_ANALYZE[language], url=result.vt_url.permalink))
-    if result.vt_url is not None and result.scan_record_id is not None:
-        buttons.append(
-            InlineKeyboardButton(_REPORT_URL[language], callback_data=f"report:{result.scan_record_id}")
-        )
     if not buttons:
         return None
     return InlineKeyboardMarkup([[button] for button in buttons])

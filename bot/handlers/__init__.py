@@ -11,7 +11,6 @@ from telegram.ext import (
 )
 
 from bot.database.group_preference_repository import GroupPreferenceRepository
-from bot.database.report_repository import ReportRepository
 from bot.database.repository import ScanRepository
 from bot.database.secretary_preference_repository import SecretaryPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
@@ -31,7 +30,6 @@ from bot.handlers.language import handle_language_choice
 from bot.handlers.media import handle_unsupported_media
 from bot.handlers.membership import handle_bot_membership_update
 from bot.handlers.private import handle_private_message, handle_private_photo
-from bot.handlers.report import handle_report_callback
 from bot.handlers.secretary import (
     BusinessConnectionFilter,
     handle_business_connection,
@@ -66,9 +64,6 @@ def register_handlers(
     group_scan_enabled: bool,
     user_pref_repo: UserPreferenceRepository,
     group_pref_repo: GroupPreferenceRepository,
-    report_repo: ReportRepository,
-    scan_repo: ScanRepository,
-    admin_chat_id: int | None,
     breach_client: BreachCheckClient,
     image_extractor: ImageExtractor,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -136,18 +131,6 @@ def register_handlers(
             pattern="^lang:",
         )
     )
-    app.add_handler(
-        CallbackQueryHandler(
-            partial(
-                handle_report_callback,
-                report_repo=report_repo,
-                scan_repo=scan_repo,
-                admin_chat_id=admin_chat_id,
-            ),
-            pattern="^report:",
-        )
-    )
-
     if secretary_pref_repo is not None:
         app.add_handler(
             CallbackQueryHandler(

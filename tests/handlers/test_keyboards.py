@@ -50,7 +50,7 @@ def test_builds_button_for_url_verdict():
     assert buttons[0].url == "https://www.virustotal.com/gui/url/xyz"
 
 
-def test_includes_report_button_when_url_verdict_present():
+def test_url_verdict_never_adds_a_report_button():
     from uuid import uuid4
 
     scan_id = uuid4()
@@ -64,12 +64,12 @@ def test_includes_report_button_when_url_verdict_present():
     )
     markup = virustotal_keyboard(result, "en")
     buttons = [b for row in markup.inline_keyboard for b in row]
-    report_buttons = [b for b in buttons if b.callback_data == f"report:{scan_id}"]
-    assert len(report_buttons) == 1
-    assert report_buttons[0].text == "🚩 Report this URL"
+    assert len(buttons) == 1
+    assert buttons[0].url == "https://www.virustotal.com/gui/url/xyz"
+    assert not any(b.callback_data and b.callback_data.startswith("report:") for b in buttons)
 
 
-def test_no_report_button_when_no_url_verdict():
+def test_file_verdict_never_adds_a_report_button():
     result = ScanResult(
         risk_level=RiskLevel.HIGH,
         vt_file=VTFileVerdict(
@@ -133,7 +133,7 @@ def test_button_labels_are_localized_to_english():
     markup = virustotal_keyboard(result, "en")
     texts = [b.text for row in markup.inline_keyboard for b in row]
     assert "🔍 View Analysis on VirusTotal" in texts
-    assert "🚩 Report this URL" in texts
+    assert "🚩 Report this URL" not in texts
 
 
 def test_main_menu_keyboard_has_seven_english_buttons():

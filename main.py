@@ -9,7 +9,6 @@ from telegram.ext import AIORateLimiter, Application, ContextTypes
 from bot.config.settings import get_settings
 from bot.database.engine import create_db_and_tables, get_engine
 from bot.database.group_preference_repository import GroupPreferenceRepository
-from bot.database.report_repository import ReportRepository
 from bot.database.repository import ScanRepository
 from bot.database.secretary_preference_repository import SecretaryPreferenceRepository
 from bot.database.user_preference_repository import UserPreferenceRepository
@@ -75,7 +74,6 @@ def main() -> None:
     repo = ScanRepository(engine)
     user_pref_repo = UserPreferenceRepository(engine)
     group_pref_repo = GroupPreferenceRepository(engine)
-    report_repo = ReportRepository(engine)
     secretary_pref_repo = SecretaryPreferenceRepository(engine)
 
     pipeline = ScanPipeline(ai_provider, vt_client, repo)
@@ -97,9 +95,6 @@ def main() -> None:
         settings.group_scan_enabled,
         user_pref_repo,
         group_pref_repo,
-        report_repo,
-        repo,
-        settings.admin_chat_id,
         breach_client,
         image_extractor,
         settings.max_file_size_bytes,
